@@ -94,7 +94,7 @@ class Thuman2_Dataset(Dataset):
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])
         self.color_transform = transforms.ColorJitter(brightness=0.3, contrast=0.2, saturation=0.2, hue=0.0)
-        self.output_front = True
+        self.output_front = output_front
 
     def __len__(self):
         if len(self.cloth_ids) >= 1:

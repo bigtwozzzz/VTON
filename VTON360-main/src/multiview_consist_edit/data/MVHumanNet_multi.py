@@ -109,7 +109,7 @@ class MVHumanNet_Dataset(Dataset):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])
-        self.output_front = True
+        self.output_front = output_front
 
     def __len__(self):
         if len(self.cloth_ids) >= 1:
@@ -402,5 +402,4 @@ if __name__ == '__main__':
         pixel_values_cloth_img= Image.fromarray(pixel_values_cloth_img)
         pixel_values_cloth_img.save('pixel_values_cloth_back.jpg')
         exit()
-
 
