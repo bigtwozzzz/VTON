@@ -1,4 +1,5 @@
 import argparse
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -19,7 +20,9 @@ def _conda_run(env_name: str, argv: list[str]) -> list[str]:
     conda = _require_executable("conda")
     env = env_name.strip()
     if "/" in env or env.startswith("."):
+        # 兼容“prefix 环境”（conda env list 只显示路径、不显示名字的情况）
         return [conda, "run", "-p", env, *argv]
+    # 兼容“named 环境”
     return [conda, "run", "-n", env, *argv]
 
 
@@ -32,6 +35,7 @@ def _parse_cloth_id(path: Path) -> tuple[str, str]:
     parts = stem.split("_")
     if len(parts) < 2:
         raise ValueError(f"Cannot parse cloth id/frame id from filename: {path.name}")
+    # VTON360 的 mvhumannet_2D_edit 数据约定：cloth_id 和 frame_id 分别是文件名前两个 '_' 分段
     return parts[0], parts[1]
 
 
@@ -65,6 +69,7 @@ def _reset_vton360_cloth(vton360_cloth_dir: Path, test_cloth_ids_path: Path) -> 
         if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png"}:
             p.unlink()
     test_cloth_ids_path.parent.mkdir(parents=True, exist_ok=True)
+    # VTON360 的数据读取依赖 test_cloth_ids.txt；每次跑新衣服时清空并重建，避免混入旧 id
     test_cloth_ids_path.write_text("", encoding="utf-8")
 
 
@@ -77,6 +82,16 @@ def main() -> None:
     parser.add_argument("--vton360-data-root", default="/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit")
     parser.add_argument("--invert-vton-cloth-names", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--reset-vton360-cloth", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--collar-module", choices=["none", "cut_top_bump", "neckline_cut", "neckline_edge", "manual_point"], default="none")
+    parser.add_argument("--seam-module", choices=["none", "feather_stats", "side_views"], default="none")
+    parser.add_argument("--seam-band-width", type=int, default=24)
+    parser.add_argument("--neckline-edge-ymax-scale", type=float, default=0.40)
+    parser.add_argument("--neckline-edge-depth-bonus", type=float, default=0.28)
+    parser.add_argument("--neckline-edge-depth-penalty", type=float, default=0.04)
+    parser.add_argument("--neckline-edge-slope-strength", type=float, default=0.12)
+    parser.add_argument("--neckline-edge-slope-power", type=float, default=1.6)
+    parser.add_argument("--neckline-manual-x", type=float, default=-1.0)
+    parser.add_argument("--neckline-manual-y", type=float, default=-1.0)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -200,13 +215,48 @@ def main() -> None:
     _run(cmd_wonder3d, cwd=wonder3d_root)
 
     # Step 3) 为每个输入衣服，从 Wonder3D 输出中取 front/back 视角图片。
-    # 这里优先使用 masked_colors 下的文件（抠掉背景后的 RGBA），路径形如：
+    # 默认优先使用 masked_colors 下的文件（抠掉背景后的 RGBA），路径形如：
     #   /root/autodl-tmp/VTON/test_data/outputs/wonder3d/
     #     cropsize-192-cfg1.0/102669_3135_input_rgba/masked_colors/rgb_000_back.png
     #
     # 注意：Wonder3D 的 scene_name 是输入 RGBA 文件名去掉 .png 后缀：
     #   rgba_name = 102669_3135_input_rgba.png  -> scene_name = 102669_3135_input_rgba
-    vton_pairs: list[tuple[str, str]] = []
+    #
+    # 经验问题：部分浅色短袖在 Wonder3D 的 masked_colors/rgb_000_front.png 里会把袖子抠没（alpha 变小），
+    # 合成白底后看起来像“袖子变白”。因此这里对 front 视图做一个修正：
+    # - 读取 Wonder3D 的 rgb_000_front.png（不带 mask）
+    # - 使用输入的 input_rgba.png 的 alpha 作为 front 视图的 alpha（front 视角与输入一致）
+    fixed_root = work_dir / "wonder3d_fixed"
+    fixed_root.mkdir(parents=True, exist_ok=True)
+    fixed_jobs: list[tuple[str, str, str]] = []
+    for cloth_id, frame_id, _, rgba_name in cloth_items:
+        scene_name = Path(rgba_name).stem
+        try:
+            raw_front = _find_scene_file(wonder3d_save_dir, scene_name, "rgb_000_front.png")
+        except FileNotFoundError:
+            continue
+        in_rgba = inputs_dir / rgba_name
+        out_dir = fixed_root / scene_name
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_front = out_dir / "front_rgba.png"
+        fixed_jobs.append((str(raw_front), str(in_rgba), str(out_front)))
+
+    if fixed_jobs:
+        fix_front_py = "\n".join(
+            [
+                "from PIL import Image",
+                "jobs = " + repr(fixed_jobs),
+                "for raw_front, in_rgba, out_path in jobs:",
+                "    rgb = Image.open(raw_front).convert('RGB')",
+                "    a = Image.open(in_rgba).convert('RGBA').split()[-1].resize(rgb.size, Image.BILINEAR)",
+                "    Image.merge('RGBA', (*rgb.split(), a)).save(out_path)",
+                "    print(out_path)",
+            ]
+        )
+        _run(_conda_run(args.wonder3d_env, ["python", "-c", fix_front_py]))
+    # Step 3+4) 生成 VTON360 的 cloth 输入（front/back 两张图）。
+    # 这里支持把“衣领处理模块 / 接缝处理模块”插到 Wonder3D 与 VTON360 之间，通过命令行参数控制开启哪一个。
+    vton_items: list[dict[str, str]] = []
     for cloth_id, frame_id, src_input_img, rgba_name in cloth_items:
         scene_name = Path(rgba_name).stem
         back_png = _find_scene_file(wonder3d_save_dir, scene_name, "masked_colors/rgb_000_back.png")
@@ -215,36 +265,81 @@ def main() -> None:
             front_png = _find_scene_file(wonder3d_save_dir, scene_name, "masked_colors/rgb_000_front.png")
         except FileNotFoundError:
             front_png = None
+        left_png: Path | None
+        right_png: Path | None
+        try:
+            left_png = _find_scene_file(wonder3d_save_dir, scene_name, "masked_colors/rgb_000_left.png")
+        except FileNotFoundError:
+            left_png = None
+        try:
+            right_png = _find_scene_file(wonder3d_save_dir, scene_name, "masked_colors/rgb_000_right.png")
+        except FileNotFoundError:
+            right_png = None
 
         front_dst = vton360_cloth_dir / f"{cloth_id}_{frame_id}_front.jpg"
         back_dst = vton360_cloth_dir / f"{cloth_id}_{frame_id}_back.jpg"
 
-        # Step 4) 写入 VTON360 的 cloth 目录。
-        # 注意：VTON360 的 mvhumannet_2D_edit 数据存在 front/back 文件名语义对调的历史原因，
-        # 默认 invert_vton_cloth_names=True 会把：
-        # - Wonder3D 的 back 视角写成 VTON360 的 *_front.jpg
-        # - Wonder3D 的 front（或原始输入）写成 VTON360 的 *_back.jpg
-        if args.invert_vton_cloth_names:
-            src_for_front = str(back_png)
-            src_for_back = str(front_png) if front_png is not None else str(src_input_img)
+        # semantic：Wonder3D 的 front/back 视角（与 VTON360 的文件名语义无关）
+        fixed_front = fixed_root / scene_name / "front_rgba.png"
+        if fixed_front.exists():
+            src_sem_front = str(fixed_front)
         else:
-            src_for_front = str(front_png) if front_png is not None else str(src_input_img)
-            src_for_back = str(back_png)
+            src_sem_front = str(front_png) if front_png is not None else str(src_input_img)
+        src_sem_back = str(back_png)
+        src_sem_left = str(left_png) if left_png is not None else ""
+        src_sem_right = str(right_png) if right_png is not None else ""
 
-        vton_pairs.append((src_for_front, str(front_dst)))
-        vton_pairs.append((src_for_back, str(back_dst)))
+        vton_items.append(
+            {
+                "src_sem_front": src_sem_front,
+                "src_sem_back": src_sem_back,
+                "src_sem_left": src_sem_left,
+                "src_sem_right": src_sem_right,
+                "dst_front": str(front_dst),
+                "dst_back": str(back_dst),
+            }
+        )
 
-    to_jpg_py = "\n".join(
+    items_json_path = work_dir / "vton_items.json"
+    items_json_path.write_text(json.dumps(vton_items, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    modules_script = project_root / "src" / "cloth_modules.py"
+    cmd_modules = _conda_run(
+        args.vton360_env,
         [
-            "from PIL import Image",
-            "import os",
-            "pairs = " + repr(vton_pairs),
-            "for src, dst in pairs:",
-            "    os.makedirs(os.path.dirname(dst), exist_ok=True)",
-            "    Image.open(src).convert('RGB').save(dst, quality=95)",
-        ]
+            "python",
+            str(modules_script),
+            "--items-json",
+            str(items_json_path),
+            "--collar-module",
+            args.collar_module,
+            "--seam-module",
+            args.seam_module,
+            "--seam-band-width",
+            str(args.seam_band_width),
+            "--invert-vton-cloth-names" if args.invert_vton_cloth_names else "--no-invert-vton-cloth-names",
+            "--neckline-edge-ymax-scale",
+            str(args.neckline_edge_ymax_scale),
+            "--neckline-edge-depth-bonus",
+            str(args.neckline_edge_depth_bonus),
+            "--neckline-edge-depth-penalty",
+            str(args.neckline_edge_depth_penalty),
+            "--neckline-edge-slope-strength",
+            str(args.neckline_edge_slope_strength),
+            "--neckline-edge-slope-power",
+            str(args.neckline_edge_slope_power),
+            "--neckline-manual-x",
+            str(args.neckline_manual_x),
+            "--neckline-manual-y",
+            str(args.neckline_manual_y),
+            "--debug-dir",
+            str(work_dir),
+        ],
     )
-    _run(_conda_run(args.vton360_env, ["python", "-c", to_jpg_py]))
+    # 处理模块单独放在 src/cloth_modules.py：
+    # - 做领口/接缝等 2D 修复（可选）
+    # - 把处理后的 cloth 正背面写入 VTON360 的 cloth/ 目录
+    _run(cmd_modules)
 
     # Step 5) 运行 VTON360 推理。
     # 因为 VTON360 推理脚本固定读取 config/infer_tryon_multi.yaml，
