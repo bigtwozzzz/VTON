@@ -2,6 +2,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 
@@ -82,6 +83,7 @@ def main() -> None:
     parser.add_argument("--vton360-data-root", default="/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit")
     parser.add_argument("--invert-vton-cloth-names", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--reset-vton360-cloth", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--front-alpha-fix", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--collar-module", choices=["none", "cut_top_bump", "neckline_cut", "neckline_edge", "manual_point"], default="none")
     parser.add_argument("--seam-module", choices=["none", "feather_stats", "side_views"], default="none")
     parser.add_argument("--seam-band-width", type=int, default=24)
@@ -92,8 +94,18 @@ def main() -> None:
     parser.add_argument("--neckline-edge-slope-power", type=float, default=1.6)
     parser.add_argument("--neckline-manual-x", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-y", type=float, default=-1.0)
+    parser.add_argument("--neckline-manual-shape", type=float, default=1.0)
+    parser.add_argument("--person-id", default="100067")
+    parser.add_argument("--pose-id", default="0320")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    stage_secs: dict[str, float] = {}
+
+    def _run_stage(name: str, cmd: list[str], cwd: Path | None = None) -> None:
+        print(f"STAGE: {name}")
+        t0 = time.perf_counter()
+        _run(cmd, cwd=cwd)
+        stage_secs[name] = stage_secs.get(name, 0.0) + (time.perf_counter() - t0)
 
     project_root = Path("/root/autodl-tmp/VTON")
     cloth_images: list[Path]
@@ -211,8 +223,8 @@ def main() -> None:
         print("Wonder3D:", " ".join(cmd_wonder3d))
         return
 
-    _run(cmd_rgba)
-    _run(cmd_wonder3d, cwd=wonder3d_root)
+    _run_stage("rgba", cmd_rgba)
+    _run_stage("wonder3d", cmd_wonder3d, cwd=wonder3d_root)
 
     # Step 3) 为每个输入衣服，从 Wonder3D 输出中取 front/back 视角图片。
     # 默认优先使用 masked_colors 下的文件（抠掉背景后的 RGBA），路径形如：
@@ -227,33 +239,57 @@ def main() -> None:
     # - 读取 Wonder3D 的 rgb_000_front.png（不带 mask）
     # - 使用输入的 input_rgba.png 的 alpha 作为 front 视图的 alpha（front 视角与输入一致）
     fixed_root = work_dir / "wonder3d_fixed"
-    fixed_root.mkdir(parents=True, exist_ok=True)
     fixed_jobs: list[tuple[str, str, str]] = []
-    for cloth_id, frame_id, _, rgba_name in cloth_items:
-        scene_name = Path(rgba_name).stem
-        try:
-            raw_front = _find_scene_file(wonder3d_save_dir, scene_name, "rgb_000_front.png")
-        except FileNotFoundError:
-            continue
-        in_rgba = inputs_dir / rgba_name
-        out_dir = fixed_root / scene_name
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_front = out_dir / "front_rgba.png"
-        fixed_jobs.append((str(raw_front), str(in_rgba), str(out_front)))
+    if args.front_alpha_fix:
+        fixed_root.mkdir(parents=True, exist_ok=True)
+        for cloth_id, frame_id, _, rgba_name in cloth_items:
+            scene_name = Path(rgba_name).stem
+            try:
+                raw_front = _find_scene_file(wonder3d_save_dir, scene_name, "rgb_000_front.png")
+            except FileNotFoundError:
+                continue
+            in_rgba = inputs_dir / rgba_name
+            out_dir = fixed_root / scene_name
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_front = out_dir / "front_rgba.png"
+            fixed_jobs.append((str(raw_front), str(in_rgba), str(out_front)))
 
     if fixed_jobs:
         fix_front_py = "\n".join(
             [
-                "from PIL import Image",
+                "from PIL import Image, ImageChops, ImageFilter",
+                "CROP_SIZE = 192",
+                "def _add_margin_l(alpha_l, size):",
+                "    w, h = alpha_l.size",
+                "    out = Image.new('L', (size, size), 0)",
+                "    out.paste(alpha_l, ((size - w) // 2, (size - h) // 2))",
+                "    return out",
+                "def _preprocess_alpha_like_wonder3d(in_rgba_path, out_size):",
+                "    a_src = Image.open(in_rgba_path).convert('RGBA').split()[-1]",
+                "    bbox = a_src.getbbox()",
+                "    if bbox is None:",
+                "        return a_src.resize((out_size, out_size), Image.BILINEAR)",
+                "    a_crop = a_src.crop(bbox)",
+                "    w, h = a_crop.size",
+                "    s = CROP_SIZE / float(max(w, h))",
+                "    w2 = max(1, int(round(w * s)))",
+                "    h2 = max(1, int(round(h * s)))",
+                "    a_crop = a_crop.resize((w2, h2), Image.BILINEAR)",
+                "    return _add_margin_l(a_crop, out_size)",
                 "jobs = " + repr(fixed_jobs),
                 "for raw_front, in_rgba, out_path in jobs:",
                 "    rgb = Image.open(raw_front).convert('RGB')",
-                "    a = Image.open(in_rgba).convert('RGBA').split()[-1].resize(rgb.size, Image.BILINEAR)",
-                "    Image.merge('RGBA', (*rgb.split(), a)).save(out_path)",
+                "    out_size = rgb.size[0]",
+                "    a0 = _preprocess_alpha_like_wonder3d(in_rgba, out_size)",
+                "    a = a0.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MinFilter(3))",
+                "    a_core = a0.filter(ImageFilter.MinFilter(5))",
+                "    edge = ImageChops.subtract(a0, a_core).point(lambda p: 255 if p > 0 else 0)",
+                "    rgb2 = Image.composite(rgb.filter(ImageFilter.MedianFilter(3)), rgb, edge)",
+                "    Image.merge('RGBA', (*rgb2.split(), a)).save(out_path)",
                 "    print(out_path)",
             ]
         )
-        _run(_conda_run(args.wonder3d_env, ["python", "-c", fix_front_py]))
+        _run_stage("fix_front", _conda_run(args.wonder3d_env, ["python", "-c", fix_front_py]))
     # Step 3+4) 生成 VTON360 的 cloth 输入（front/back 两张图）。
     # 这里支持把“衣领处理模块 / 接缝处理模块”插到 Wonder3D 与 VTON360 之间，通过命令行参数控制开启哪一个。
     vton_items: list[dict[str, str]] = []
@@ -281,7 +317,7 @@ def main() -> None:
 
         # semantic：Wonder3D 的 front/back 视角（与 VTON360 的文件名语义无关）
         fixed_front = fixed_root / scene_name / "front_rgba.png"
-        if fixed_front.exists():
+        if args.front_alpha_fix and fixed_front.exists():
             src_sem_front = str(fixed_front)
         else:
             src_sem_front = str(front_png) if front_png is not None else str(src_input_img)
@@ -332,6 +368,8 @@ def main() -> None:
             str(args.neckline_manual_x),
             "--neckline-manual-y",
             str(args.neckline_manual_y),
+            "--neckline-manual-shape",
+            str(args.neckline_manual_shape),
             "--debug-dir",
             str(work_dir),
         ],
@@ -339,7 +377,7 @@ def main() -> None:
     # 处理模块单独放在 src/cloth_modules.py：
     # - 做领口/接缝等 2D 修复（可选）
     # - 把处理后的 cloth 正背面写入 VTON360 的 cloth/ 目录
-    _run(cmd_modules)
+    _run_stage("modules", cmd_modules)
 
     # Step 5) 运行 VTON360 推理。
     # 因为 VTON360 推理脚本固定读取 config/infer_tryon_multi.yaml，
@@ -352,30 +390,60 @@ def main() -> None:
             "import subprocess, sys",
             "from pathlib import Path",
             "from omegaconf import OmegaConf",
+            "import time",
             f"cfg_path = Path({repr(str(vton_cfg))})",
             f"workdir = Path({repr(str(vton360_root))})",
             f"dataset_root = {repr(str(vton360_data_root))}",
+            f"test_ids_path = Path(dataset_root) / 'test_ids.txt'",
+            f"person_id = {repr(str(args.person_id))}",
+            f"pose_id = {repr(str(args.pose_id))}",
             f"out_front = {repr(str(outputs_vton_front))}",
             f"out_back = {repr(str(outputs_vton_back))}",
             "orig = cfg_path.read_text(encoding='utf-8')",
+            "orig_ids = test_ids_path.read_text(encoding='utf-8') if test_ids_path.exists() else ''",
             "try:",
+            "    test_ids_path.parent.mkdir(parents=True, exist_ok=True)",
+            "    test_ids_path.write_text(f'{person_id} {pose_id}\\n', encoding='utf-8')",
             "    cfg = OmegaConf.load(cfg_path)",
             "    cfg.infer_data.dataroot = dataset_root",
             "    cfg.infer_data.output_front = True",
             "    cfg.out_dir = out_front",
             "    OmegaConf.save(cfg, cfg_path)",
+            "    print('STAGE: vton_front')",
+            "    t0 = time.perf_counter()",
             f"    subprocess.run([sys.executable, {repr(infer_script.name)}], cwd=str(workdir), check=True)",
+            "    t_front = time.perf_counter() - t0",
             "    cfg = OmegaConf.load(cfg_path)",
             "    cfg.infer_data.output_front = False",
             "    cfg.out_dir = out_back",
             "    OmegaConf.save(cfg, cfg_path)",
+            "    print('STAGE: vton_back')",
+            "    t1 = time.perf_counter()",
             f"    subprocess.run([sys.executable, {repr(infer_script.name)}], cwd=str(workdir), check=True)",
+            "    t_back = time.perf_counter() - t1",
+            "    t_sum = t_front + t_back",
+            "    if t_sum > 1e-6:",
+            "        print(f'TIMING: vton_front_sec={t_front:.3f} vton_back_sec={t_back:.3f} vton_front_pct={100.0*t_front/t_sum:.1f}% vton_back_pct={100.0*t_back/t_sum:.1f}%')",
             "finally:",
             "    cfg_path.write_text(orig, encoding='utf-8')",
+            "    try:",
+            "        test_ids_path.write_text(orig_ids, encoding='utf-8')",
+            "    except Exception:",
+            "        pass",
         ]
     )
 
-    _run(_conda_run(args.vton360_env, ["python", "-c", vton_runner]))
+    _run_stage("vton360", _conda_run(args.vton360_env, ["python", "-c", vton_runner]))
+
+    total = sum(stage_secs.values())
+    if total > 1e-6:
+        print("TIMING SUMMARY:")
+        for k in ["rgba", "wonder3d", "fix_front", "modules", "vton360"]:
+            if k not in stage_secs:
+                continue
+            s = float(stage_secs[k])
+            print(f"TIMING: {k}_sec={s:.3f} {k}_pct={100.0*s/total:.1f}%")
+        print(f"TIMING: total_sec={total:.3f}")
 
     print(str(outputs_root))
 

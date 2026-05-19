@@ -8,6 +8,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataset import Dataset
 from transformers import CLIPProcessor
 import random
+from torchvision.transforms import InterpolationMode
 from torchvision.transforms import functional as F
 import torch.distributed as dist
 import copy
@@ -81,7 +82,7 @@ class Thuman2_Dataset(Dataset):
         ])
 
         self.ref_transforms_train = transforms.Compose([
-            transforms.Resize(self.sample_size),
+            transforms.Resize(self.sample_size, interpolation=getattr(InterpolationMode, "LANCZOS", InterpolationMode.BICUBIC)),
             # RandomScaleResize([1.0,1.1]),
             transforms.CenterCrop(self.sample_size),
             transforms.RandomAffine(degrees=0, translate=(0.08,0.08),scale=(0.9,1.1)),
@@ -89,7 +90,7 @@ class Thuman2_Dataset(Dataset):
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])
         self.ref_transforms_test = transforms.Compose([
-            transforms.Resize(self.sample_size),
+            transforms.Resize(self.sample_size, interpolation=getattr(InterpolationMode, "LANCZOS", InterpolationMode.BICUBIC)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
         ])

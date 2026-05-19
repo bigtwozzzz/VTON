@@ -19,3 +19,5 @@ python /root/autodl-tmp/VTON/src/ui_server.py \
   --vton360-env vton360tmp
 
 ssh -L 8766:127.0.0.1:8766 -p 21092 root@connect.bjb1.seetacloud.com
+
+python /root/autodl-tmp/VTON/src/mcp_word_server.py --transport stdio

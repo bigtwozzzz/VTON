@@ -17,7 +17,8 @@ Wonder3D/Wonder3D-main/sam_pt/
 Wonder3D/Wonder3D-main/outputs/
 Wonder3D/Wonder3D-main/cloth_inputs/
 test_data/outputs/
-VTON360-main/src/data
+VTON360-main/src/data/
+paper/
 
 **/.cache/
 **/wandb/

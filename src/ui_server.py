@@ -20,11 +20,69 @@ OUTPUTS_DIR = PROJECT_ROOT / "test_data" / "outputs"
 WORK_DIR = PROJECT_ROOT / "test_data" / "work"
 PIPELINE_SCRIPT = PROJECT_ROOT / "src" / "run_tryon_pipeline.py"
 
+def _require_executable(name: str) -> str:
+    exe = shutil.which(name)
+    if exe is None:
+        raise RuntimeError(f"Missing executable in PATH: {name}")
+    return exe
+
+
+def _conda_run(env_name: str, argv: list[str]) -> list[str]:
+    conda = _require_executable("conda")
+    env = (env_name or "").strip()
+    if "/" in env or env.startswith("."):
+        return [conda, "run", "-p", env, *argv]
+    return [conda, "run", "-n", env, *argv]
+
+
+def _build_pick_preview(wonder3d_env: str, inp: Path, outp: Path) -> None:
+    py = "\n".join(
+        [
+            "from PIL import Image",
+            "CROP_SIZE = 384",
+            "OUT_SIZE = 512",
+            "def add_margin(pil_img, size=256):",
+            "    width, height = pil_img.size",
+            "    result = Image.new(pil_img.mode, (size, size), 0 if pil_img.mode == 'L' else (255, 255, 255, 0))",
+            "    result.paste(pil_img, ((size - width) // 2, (size - height) // 2))",
+            "    return result",
+            f"inp = {repr(str(inp))}",
+            f"outp = {repr(str(outp))}",
+            "img = Image.open(inp).convert('RGBA')",
+            "try:",
+            "    from rembg import remove",
+            "    img = remove(img, alpha_matting=True)",
+            "except Exception:",
+            "    pass",
+            "a = img.split()[-1]",
+            "bbox = a.getbbox()",
+            "if bbox is not None:",
+            "    a = a.crop(bbox)",
+            "    rgb = img.crop(bbox)",
+            "else:",
+            "    rgb = img",
+            "w, h = rgb.size",
+            "s = CROP_SIZE / float(max(1, max(w, h)))",
+            "w2 = max(1, int(round(w * s)))",
+            "h2 = max(1, int(round(h * s)))",
+            "rgb = rgb.resize((w2, h2), Image.LANCZOS)",
+            "a = a.resize((w2, h2), Image.LANCZOS)",
+            "rgb = add_margin(rgb, size=OUT_SIZE)",
+            "a = add_margin(a, size=OUT_SIZE)",
+            "rgb3 = rgb.convert('RGB')",
+            "rgba = Image.merge('RGBA', (*rgb3.split(), a.convert('L')))",
+            "rgba.save(outp)",
+            "print(outp)",
+        ]
+    )
+    outp.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(_conda_run(wonder3d_env, ["python", "-c", py]), check=True)
+
+
 
 def _ensure_dirs() -> None:
     CLOTH_INPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    WORK_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _clear_dir_contents(path: Path) -> None:
@@ -119,6 +177,14 @@ def _run_pipeline_async(
         wonder3d_env,
         "--vton360-env",
         vton360_env,
+    ]
+    if not bool(args.get("front_alpha_fix", True)):
+        cmd.append("--no-front-alpha-fix")
+    cmd += [
+        "--person-id",
+        str(args.get("person_id", "100067")),
+        "--pose-id",
+        str(args.get("pose_id", "0320")),
         "--collar-module",
         str(args.get("collar_module", "none")),
         "--seam-module",
@@ -139,6 +205,8 @@ def _run_pipeline_async(
         str(float(args.get("neckline_manual_x", -1.0))),
         "--neckline-manual-y",
         str(float(args.get("neckline_manual_y", -1.0))),
+        "--neckline-manual-shape",
+        str(float(args.get("neckline_manual_shape", 1.0))),
     ]
 
     env = os.environ.copy()
@@ -211,6 +279,13 @@ class Handler(BaseHTTPRequestHandler):
             ct = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
             self._send_bytes(200, ct, p.read_bytes())
             return
+        if parsed.path == "/api/pick_preview":
+            p = WORK_DIR / "pick_preview.png"
+            if not p.exists():
+                self._send_json(404, {"error": "not_found"})
+                return
+            self._send_bytes(200, "image/png", p.read_bytes())
+            return
 
         if parsed.path == "/api/status":
             qs = parse_qs(parsed.query)
@@ -225,6 +300,23 @@ class Handler(BaseHTTPRequestHandler):
             if log_path.exists():
                 data = log_path.read_bytes()
                 tail = data[-6000:].decode("utf-8", errors="replace")
+            stage = ""
+            for line in reversed(tail.splitlines()):
+                if line.startswith("STAGE:"):
+                    stage = line.split(":", 1)[1].strip()
+                    break
+            if job.get("status") == "done":
+                progress = 1.0
+            else:
+                stage_map = {
+                    "rgba": 0.10,
+                    "wonder3d": 0.25,
+                    "fix_front": 0.55,
+                    "modules": 0.65,
+                    "vton_front": 0.82,
+                    "vton_back": 0.92,
+                }
+                progress = float(stage_map.get(stage, 0.02))
             self._send_json(
                 200,
                 {
@@ -233,6 +325,8 @@ class Handler(BaseHTTPRequestHandler):
                     "exit_code": job.get("exit_code"),
                     "log_tail": tail,
                     "cloth_id": job.get("cloth_id"),
+                    "stage": stage,
+                    "progress": progress,
                 },
             )
             return
@@ -307,6 +401,10 @@ class Handler(BaseHTTPRequestHandler):
             out_path = CLOTH_INPUT_DIR / out_name
             data = file_item.file.read()
             out_path.write_bytes(data)
+            try:
+                _build_pick_preview(self.server.wonder3d_env, out_path, WORK_DIR / "pick_preview.png")
+            except Exception:
+                pass
 
             with STATE.lock:
                 STATE.last_upload = {

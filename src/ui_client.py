@@ -12,125 +12,378 @@ HTML = r"""<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>VTON 客户端</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei"; margin: 18px; }
-    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; max-width: 960px; }
-    label { display: block; font-size: 13px; color: #333; }
-    input[type="text"] { width: 420px; padding: 6px 8px; }
-    input[type="range"] { width: 320px; }
-    select { padding: 6px 8px; }
-    button { padding: 8px 12px; }
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255, 255, 255, 0.07);
+      --panel2: rgba(255, 255, 255, 0.09);
+      --border: rgba(255, 255, 255, 0.14);
+      --text: rgba(255, 255, 255, 0.92);
+      --muted: rgba(255, 255, 255, 0.66);
+      --muted2: rgba(255, 255, 255, 0.46);
+      --primary: #6d8bff;
+      --ok: #36d399;
+      --warn: #f6c177;
+      --danger: #ff5d7a;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+      --radiusSm: 10px;
+      --gap: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei";
+      color: var(--text);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(109, 139, 255, 0.20), transparent 60%),
+        radial-gradient(900px 600px at 75% 20%, rgba(54, 211, 153, 0.12), transparent 55%),
+        radial-gradient(1000px 800px at 35% 90%, rgba(255, 93, 122, 0.10), transparent 60%),
+        var(--bg);
+    }
+
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"; }
-    #img { max-width: 900px; max-height: 650px; border: 1px solid #eee; }
-    #log { white-space: pre-wrap; font-size: 12px; max-height: 220px; overflow: auto; background: #111; color: #ddd; padding: 10px; border-radius: 10px; }
+    .small { font-size: 12px; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 18px 14px 18px;
+      background: linear-gradient(to bottom, rgba(11, 16, 32, 0.92), rgba(11, 16, 32, 0.65));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .topbar h1 { margin: 0; font-size: 18px; font-weight: 680; letter-spacing: 0.2px; }
+    .sub { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px 18px 26px 18px; }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .card + .card { margin-top: 14px; }
+
+    .cardTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 650;
+      color: rgba(255, 255, 255, 0.86);
+      margin-bottom: 12px;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    @media (max-width: 920px) { .grid2 { grid-template-columns: 1fr; } }
+
+    .field label { display: block; font-size: 12px; color: rgba(255, 255, 255, 0.78); margin-bottom: 8px; }
+    .help { color: var(--muted2); font-size: 12px; line-height: 1.35; margin-top: 8px; }
+    .info { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+    input[type="text"], select, input[type="file"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(0, 0, 0, 0.20);
+      color: var(--text);
+      outline: none;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: rgba(109, 139, 255, 0.55);
+      box-shadow: 0 0 0 4px rgba(109, 139, 255, 0.16);
+    }
+    select {
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.65) 50%),
+                        linear-gradient(135deg, rgba(255, 255, 255, 0.65) 50%, transparent 50%);
+      background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 13px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 32px;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--primary); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .btn {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 620;
+      letter-spacing: 0.1px;
+      transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease;
+      user-select: none;
+    }
+    .btn:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.20); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: rgba(109, 139, 255, 0.22); border-color: rgba(109, 139, 255, 0.42); }
+    .btn.primary:hover { background: rgba(109, 139, 255, 0.30); }
+    .btn[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btnGroup { display: inline-flex; gap: 10px; }
+
+    .status {
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.82);
+      min-width: 84px;
+      text-align: center;
+    }
+    .status[data-kind="idle"] { border-color: rgba(255, 255, 255, 0.14); }
+    .status[data-kind="uploaded"] { border-color: rgba(54, 211, 153, 0.40); background: rgba(54, 211, 153, 0.12); }
+    .status[data-kind="running"] { border-color: rgba(246, 193, 119, 0.55); background: rgba(246, 193, 119, 0.14); }
+    .status[data-kind="done"] { border-color: rgba(54, 211, 153, 0.55); background: rgba(54, 211, 153, 0.16); }
+    .status[data-kind="error"] { border-color: rgba(255, 93, 122, 0.55); background: rgba(255, 93, 122, 0.14); }
+
+    .statusWrap { display: flex; align-items: center; gap: 10px; }
+    .progressWrap { width: 180px; display: none; }
+    .progressTrack { height: 10px; background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 999px; overflow: hidden; }
+    .progressFill { height: 100%; width: 0%; background: linear-gradient(90deg, rgba(109, 139, 255, 0.85), rgba(54, 211, 153, 0.85)); border-radius: 999px; transition: width 0.25s ease; }
+    .progressText { margin-top: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.70); text-align: right; }
+
+    .details { margin-top: 12px; border: 1px solid rgba(255, 255, 255, 0.10); border-radius: var(--radiusSm); background: rgba(0, 0, 0, 0.18); }
+    .details summary { cursor: pointer; padding: 10px 12px; color: rgba(255, 255, 255, 0.86); font-size: 12px; font-weight: 650; }
+    .detailsBody { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.10); }
+
+    .paramGrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 920px) { .paramGrid { grid-template-columns: 1fr; } }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(0, 0, 0, 0.14);
+      user-select: none;
+    }
+    .check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
+
+    .pickCard { margin-top: 12px; border: 1px solid rgba(255, 255, 255, 0.10); border-radius: var(--radiusSm); background: rgba(0, 0, 0, 0.16); overflow: hidden; display: none; }
+    .pickHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.10); }
+    .pickTitle { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.86); }
+    .pickBody { padding: 12px; }
+    .pickStage { position: relative; display: inline-block; max-width: 100%; }
+    #uploadPreview { display: block; max-width: min(760px, 100%); max-height: 520px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.04); }
+    #pickDot { position: absolute; width: 12px; height: 12px; border: 3px solid rgba(255, 255, 255, 0.95); box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.35); border-radius: 50%; transform: translate(-50%, -50%); display: none; }
+
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .viewer { margin-top: 12px; background: rgba(0, 0, 0, 0.18); border: 1px solid rgba(255, 255, 255, 0.10); border-radius: var(--radiusSm); padding: 10px; }
+    #img { display: block; max-width: 100%; max-height: 680px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.03); }
+
+    .thumbs { margin-top: 10px; display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px 2px; }
+    .thumbs::-webkit-scrollbar { height: 10px; }
+    .thumbs::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 999px; }
+    .thumb { width: 92px; height: 68px; flex: 0 0 auto; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.10); overflow: hidden; background: rgba(255, 255, 255, 0.03); cursor: pointer; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb[data-active="1"] { border-color: rgba(109, 139, 255, 0.70); box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.18); }
+
+    .log {
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.35;
+      max-height: 260px;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.46);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      color: rgba(255, 255, 255, 0.86);
+      padding: 12px;
+      border-radius: var(--radiusSm);
+    }
   </style>
 </head>
 <body>
-  <h2>VTON 可视化客户端</h2>
+  <header class="topbar">
+    <div>
+      <h1>VTON 可视化客户端</h1>
+      <div class="sub">上传衣物图 → 选择模块/参数 → 运行 → 浏览多视角结果</div>
+    </div>
+    <div class="statusWrap">
+      <div class="status" id="statusBadge" data-kind="idle">未上传</div>
+      <div class="progressWrap" id="progressWrap">
+        <div class="progressTrack"><div class="progressFill" id="progressFill"></div></div>
+        <div class="progressText" id="progressText"></div>
+      </div>
+    </div>
+  </header>
 
-  <div class="card">
-    <div class="row">
-      <div>
-        <label>服务端地址（建议用 SSH 端口转发后填本地地址）</label>
-        <input id="serverUrl" type="text" value="http://127.0.0.1:8766" />
-      </div>
-      <div>
-        <label>上传衣服图片</label>
-        <input id="file" type="file" accept="image/*" />
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="uploadBtn">上传并清空历史</button>
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="runBtn" disabled>试穿</button>
-      </div>
-    </div>
-    <div class="row" style="margin-top: 10px;">
-      <div><span class="mono" id="uploadInfo"></span></div>
-    </div>
-    <div class="row" style="margin-top: 10px;" id="manualPickSection">
-      <div>
-        <label>点击选择前领口最低点（仅 manual_point 生效）</label>
-        <div style="position: relative; display: inline-block;">
-          <img id="uploadPreview" style="max-width: 520px; max-height: 360px; border: 1px solid #eee;" />
-          <div id="pickDot" style="position:absolute; width:12px; height:12px; border:3px solid #ff0; border-radius:50%; transform: translate(-50%,-50%); display:none;"></div>
+  <main class="container">
+    <section class="card">
+      <div class="cardTitle">连接与上传</div>
+      <div class="grid2">
+        <div class="field">
+          <label>服务端地址</label>
+          <input id="serverUrl" type="text" value="http://127.0.0.1:8766" />
+          <div class="help">建议用 SSH 端口转发后填本地地址</div>
         </div>
-        <div class="mono" id="pickInfo"></div>
+        <div class="field">
+          <label>上传衣服图片</label>
+          <input id="file" type="file" accept="image/*" />
+          <div class="actions">
+            <button class="btn" id="uploadBtn">上传并清空历史</button>
+            <button class="btn primary" id="runBtn" disabled>试穿</button>
+          </div>
+          <div class="mono info" id="uploadInfo"></div>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="card" style="margin-top: 14px;">
-    <div class="row">
-      <div>
-        <label>领口模块</label>
-        <select id="collarModule">
-          <option value="none">none</option>
-          <option value="neckline_edge" selected>neckline_edge</option>
-          <option value="neckline_cut">neckline_cut</option>
-          <option value="cut_top_bump">cut_top_bump</option>
-          <option value="manual_point">manual_point</option>
-        </select>
+    <section class="card">
+      <div class="cardTitle">领口模块</div>
+      <div class="grid2">
+        <div class="field">
+          <label>领口模块</label>
+          <select id="collarModule">
+            <option value="none">none</option>
+            <option value="neckline_edge" selected>neckline_edge</option>
+            <option value="neckline_cut">neckline_cut</option>
+            <option value="cut_top_bump">cut_top_bump</option>
+            <option value="manual_point">manual_point</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>前视图 alpha 修正</label>
+          <div class="check">
+            <input id="frontAlphaFix" type="checkbox" checked />
+            <div>启用（推荐）</div>
+          </div>
+          <div class="help">关闭后将直接使用 Wonder3D 的 masked_colors 输出 alpha</div>
+        </div>
       </div>
-      <div>
-        <label>接缝模块</label>
-        <select id="seamModule">
-          <option value="none">none</option>
-          <option value="side_views" selected>side_views</option>
-          <option value="feather_stats">feather_stats</option>
-        </select>
-      </div>
-      <div id="seamParams">
-        <label>seam_band_width: <span id="seamBandWidthVal" class="mono"></span></label>
-        <input id="seamBandWidth" type="range" min="8" max="64" step="1" value="24"/>
-      </div>
-    </div>
 
-    <div class="row" style="margin-top: 10px;" id="necklineEdgeParams1">
-      <div>
-        <label>neckline_edge_ymax_scale: <span id="ymaxVal" class="mono"></span></label>
-        <input id="ymax" type="range" min="0.30" max="0.90" step="0.01" value="0.60"/>
+      <div id="manualPickSection" class="pickCard">
+        <div class="pickHeader">
+          <div>
+            <div class="pickTitle">手动点选前领口最低点</div>
+            <div class="help">仅 collar_module=manual_point 生效</div>
+          </div>
+          <div class="mono small" id="pickInfo"></div>
+        </div>
+        <div class="pickBody">
+          <div class="pickStage">
+            <img id="uploadPreview" />
+            <div id="pickDot"></div>
+          </div>
+        </div>
       </div>
-      <div>
-        <label>depth_bonus: <span id="bonusVal" class="mono"></span></label>
-        <input id="bonus" type="range" min="0.00" max="1.20" step="0.01" value="0.45"/>
-      </div>
-      <div>
-        <label>depth_penalty: <span id="penaltyVal" class="mono"></span></label>
-        <input id="penalty" type="range" min="0.00" max="0.40" step="0.01" value="0.02"/>
-      </div>
-    </div>
 
-    <div class="row" style="margin-top: 10px;" id="necklineEdgeParams2">
-      <div>
-        <label>slope_strength: <span id="slopeStrengthVal" class="mono"></span></label>
-        <input id="slopeStrength" type="range" min="0.00" max="2.00" step="0.01" value="0.80"/>
-      </div>
-      <div>
-        <label>slope_power: <span id="slopePowerVal" class="mono"></span></label>
-        <input id="slopePower" type="range" min="0.60" max="3.00" step="0.01" value="1.20"/>
-      </div>
-    </div>
-  </div>
+      <details id="collarAdvanced" class="details" open>
+        <summary>领口高级参数</summary>
+        <div class="detailsBody">
+          <div id="necklineEdgeParams1" class="paramGrid">
+            <div class="field">
+              <label>neckline_edge_ymax_scale <span id="ymaxVal" class="mono"></span></label>
+              <input id="ymax" type="range" min="0.30" max="0.90" step="0.01" value="0.60"/>
+            </div>
+            <div class="field">
+              <label>depth_bonus <span id="bonusVal" class="mono"></span></label>
+              <input id="bonus" type="range" min="0.00" max="1.20" step="0.01" value="0.45"/>
+            </div>
+            <div class="field">
+              <label>depth_penalty <span id="penaltyVal" class="mono"></span></label>
+              <input id="penalty" type="range" min="0.00" max="0.40" step="0.01" value="0.02"/>
+            </div>
+          </div>
 
-  <div class="card" style="margin-top: 14px;">
-    <div class="row">
-      <button id="toggleFB" disabled>前后切换</button>
-      <button id="left" disabled>左旋转</button>
-      <button id="right" disabled>右旋转</button>
-      <span class="mono" id="viewInfo"></span>
-    </div>
-    <div class="row" style="margin-top: 10px;">
-      <img id="img" />
-    </div>
-  </div>
+          <div id="necklineEdgeParams2" class="paramGrid" style="margin-top: 12px;">
+            <div class="field">
+              <label>slope_strength <span id="slopeStrengthVal" class="mono"></span></label>
+              <input id="slopeStrength" type="range" min="0.00" max="2.00" step="0.01" value="0.80"/>
+            </div>
+            <div class="field">
+              <label>slope_power <span id="slopePowerVal" class="mono"></span></label>
+              <input id="slopePower" type="range" min="0.60" max="3.00" step="0.01" value="1.20"/>
+            </div>
+            <div class="field"></div>
+          </div>
 
-  <div class="card" style="margin-top: 14px;">
-    <div class="row"><strong>日志（尾部）</strong></div>
-    <div id="log"></div>
-  </div>
+          <div id="manualPointParams" class="paramGrid" style="margin-top: 12px;">
+            <div class="field">
+              <label>manual_shape（圆 ↔ 尖） <span id="manualShapeVal" class="mono"></span></label>
+              <input id="manualShape" type="range" min="0.50" max="2.50" step="0.05" value="1.00"/>
+              <div class="help">往左更圆：两肩到中心下降更快、靠近最低点更平；往右更尖：更接近直线 V</div>
+            </div>
+            <div class="field"></div>
+            <div class="field"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="cardTitle">接缝模块</div>
+      <div class="grid2">
+        <div class="field">
+          <label>接缝模块</label>
+          <select id="seamModule">
+            <option value="none">none</option>
+            <option value="side_views" selected>side_views</option>
+            <option value="feather_stats">feather_stats</option>
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+
+      <details id="seamAdvanced" class="details" open>
+        <summary>接缝高级参数</summary>
+        <div class="detailsBody">
+          <div class="paramGrid">
+            <div id="seamParams" class="field">
+              <label>seam_band_width <span id="seamBandWidthVal" class="mono"></span></label>
+              <input id="seamBandWidth" type="range" min="8" max="64" step="1" value="24"/>
+            </div>
+            <div class="field"></div>
+            <div class="field"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="cardTitle">结果预览</div>
+      <div class="toolbar">
+        <div class="btnGroup">
+          <select id="personId">
+            <option value="100007">女（100007）</option>
+            <option value="100067" selected>男（100067）</option>
+          </select>
+          <select id="poseId"></select>
+        </div>
+        <button class="btn" id="toggleFB" disabled>前后切换</button>
+        <div class="btnGroup">
+          <button class="btn" id="left" disabled>左旋转</button>
+          <button class="btn" id="right" disabled>右旋转</button>
+        </div>
+        <span class="mono small" id="viewInfo"></span>
+      </div>
+      <div class="viewer">
+        <img id="img" />
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <section class="card">
+      <div class="cardTitle">日志（尾部）</div>
+      <div id="log" class="log"></div>
+    </section>
+  </main>
 
 <script>
   const el = (id) => document.getElementById(id);
@@ -150,6 +403,7 @@ HTML = r"""<!doctype html>
   bindRange("penalty", "penaltyVal");
   bindRange("slopeStrength", "slopeStrengthVal");
   bindRange("slopePower", "slopePowerVal");
+  bindRange("manualShape", "manualShapeVal");
 
   let jobId = "";
   let clothId = "";
@@ -160,14 +414,32 @@ HTML = r"""<!doctype html>
   let pickX = -1.0;
   let pickY = -1.0;
 
+  function setStatus(text, kind) {
+    setTxt("statusBadge", text);
+    el("statusBadge").setAttribute("data-kind", kind || "idle");
+    el("progressWrap").style.display = (kind === "running") ? "block" : "none";
+    if (kind !== "running") {
+      el("progressFill").style.width = "0%";
+      setTxt("progressText", "");
+    }
+  }
+
+  function setProgress(progress, stage) {
+    const p = Math.max(0, Math.min(1, Number(progress ?? 0)));
+    el("progressFill").style.width = Math.round(p * 100) + "%";
+    const stageTxt = String(stage || "").trim();
+    setTxt("progressText", stageTxt ? `${Math.round(p * 100)}% · ${stageTxt}` : `${Math.round(p * 100)}%`);
+  }
+
   function updateVisibility() {
     const collar = el("collarModule").value;
     const seam = el("seamModule").value;
 
-    el("manualPickSection").style.display = (collar === "manual_point") ? "flex" : "none";
-    el("necklineEdgeParams1").style.display = (collar === "neckline_edge") ? "flex" : "none";
-    el("necklineEdgeParams2").style.display = (collar === "neckline_edge") ? "flex" : "none";
-    el("seamParams").style.display = (seam === "none") ? "none" : "block";
+    el("manualPickSection").style.display = (collar === "manual_point") ? "block" : "none";
+    el("manualPointParams").style.display = (collar === "manual_point") ? "grid" : "none";
+    el("necklineEdgeParams1").style.display = (collar === "neckline_edge") ? "grid" : "none";
+    el("necklineEdgeParams2").style.display = (collar === "neckline_edge") ? "grid" : "none";
+    el("seamParams").style.display = (seam === "none") ? "none" : "";
 
     if (collar !== "manual_point") {
       pickX = -1.0;
@@ -181,17 +453,36 @@ HTML = r"""<!doctype html>
     return el("serverUrl").value.replace(/\/+$/, "");
   }
 
+  function updatePoseOptions() {
+    const person = el("personId").value;
+    const poseSel = el("poseId");
+    poseSel.innerHTML = "";
+    const poses = (person === "100007") ? ["1005", "1710"] : ["0320", "1220"];
+    for (const p of poses) {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = `姿势 ${p}`;
+      poseSel.appendChild(opt);
+    }
+  }
+
   async function upload() {
     const f = el("file").files[0];
     if (!f) return alert("请选择图片");
+    setStatus("上传中", "running");
     const fd = new FormData();
     fd.append("file", f);
     const resp = await fetch(server() + "/api/upload", { method: "POST", body: fd });
     const data = await resp.json();
-    if (!data.ok) return alert("上传失败: " + JSON.stringify(data));
+    if (!data.ok) {
+      setStatus("上传失败", "error");
+      return alert("上传失败: " + JSON.stringify(data));
+    }
     clothId = data.cloth_id;
     setTxt("uploadInfo", `已上传: ${data.filename}  (cloth_id=${data.cloth_id})`);
-    el("uploadPreview").src = server() + "/api/uploaded_image?t=" + Date.now();
+    const prev = el("uploadPreview");
+    prev.onerror = () => { prev.onerror = null; prev.src = server() + "/api/uploaded_image?t=" + Date.now(); };
+    prev.src = server() + "/api/pick_preview?t=" + Date.now();
     el("pickDot").style.display = "none";
     pickX = -1.0;
     pickY = -1.0;
@@ -203,11 +494,16 @@ HTML = r"""<!doctype html>
     el("img").src = "";
     setTxt("viewInfo", "");
     setTxt("log", "");
+    el("thumbs").innerHTML = "";
+    setStatus("已上传", "uploaded");
     updateVisibility();
   }
 
   function payload() {
     return {
+      person_id: el("personId").value,
+      pose_id: el("poseId").value,
+      front_alpha_fix: el("frontAlphaFix").checked,
       collar_module: el("collarModule").value,
       seam_module: el("seamModule").value,
       seam_band_width: asNum("seamBandWidth"),
@@ -218,13 +514,18 @@ HTML = r"""<!doctype html>
       neckline_edge_slope_power: asNum("slopePower"),
       neckline_manual_x: pickX,
       neckline_manual_y: pickY,
+      neckline_manual_shape: asNum("manualShape"),
     };
   }
 
   async function run() {
+    setStatus("运行中", "running");
     const resp = await fetch(server() + "/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload()) });
     const data = await resp.json();
-    if (!data.ok) return alert("启动失败: " + JSON.stringify(data));
+    if (!data.ok) {
+      setStatus("启动失败", "error");
+      return alert("启动失败: " + JSON.stringify(data));
+    }
     jobId = data.job_id;
     setTxt("log", "已启动任务: " + jobId + "\n等待完成...");
     poll();
@@ -235,6 +536,10 @@ HTML = r"""<!doctype html>
     const resp = await fetch(server() + "/api/status?job_id=" + encodeURIComponent(jobId));
     const data = await resp.json();
     setTxt("log", data.log_tail || "");
+    if (data.status !== "done") {
+      setProgress(data.progress, data.stage);
+      if (data.stage) setStatus("运行中", "running");
+    }
     if (data.status === "done") {
       await refreshResults();
       return;
@@ -253,6 +558,7 @@ HTML = r"""<!doctype html>
     el("toggleFB").disabled = false;
     el("left").disabled = false;
     el("right").disabled = false;
+    setStatus("已完成", "done");
     show();
   }
 
@@ -260,10 +566,32 @@ HTML = r"""<!doctype html>
     return which === "front" ? filesFront : filesBack;
   }
 
+  function renderThumbs() {
+    const list = currentList();
+    const box = el("thumbs");
+    box.innerHTML = "";
+    if (!clothId || list.length === 0) return;
+    const limit = Math.min(list.length, 24);
+    for (let i = 0; i < limit; i++) {
+      const name = list[i];
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      thumb.setAttribute("data-active", i === idx ? "1" : "0");
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.alt = name;
+      img.src = server() + `/api/image?which=${encodeURIComponent(which)}&cloth_id=${encodeURIComponent(clothId)}&name=${encodeURIComponent(name)}&t=${Date.now()}`;
+      thumb.appendChild(img);
+      thumb.addEventListener("click", () => { idx = i; show(); });
+      box.appendChild(thumb);
+    }
+  }
+
   function show() {
     const list = currentList();
     if (!clothId || list.length === 0) {
       setTxt("viewInfo", "无结果");
+      el("thumbs").innerHTML = "";
       return;
     }
     idx = ((idx % list.length) + list.length) % list.length;
@@ -271,6 +599,7 @@ HTML = r"""<!doctype html>
     setTxt("viewInfo", `${which}  ${idx + 1}/${list.length}  ${name}`);
     const url = server() + `/api/image?which=${encodeURIComponent(which)}&cloth_id=${encodeURIComponent(clothId)}&name=${encodeURIComponent(name)}&t=${Date.now()}`;
     el("img").src = url;
+    renderThumbs();
   }
 
   function rotate(delta) {
@@ -286,13 +615,14 @@ HTML = r"""<!doctype html>
     show();
   }
 
-  el("uploadBtn").addEventListener("click", () => upload().catch(e => alert(String(e))));
-  el("runBtn").addEventListener("click", () => run().catch(e => alert(String(e))));
+  el("uploadBtn").addEventListener("click", () => upload().catch(e => { setStatus("上传失败", "error"); alert(String(e)); }));
+  el("runBtn").addEventListener("click", () => run().catch(e => { setStatus("运行失败", "error"); alert(String(e)); }));
   el("left").addEventListener("click", () => rotate(-1));
   el("right").addEventListener("click", () => rotate(1));
   el("toggleFB").addEventListener("click", () => toggleFB());
   el("collarModule").addEventListener("change", () => updateVisibility());
   el("seamModule").addEventListener("change", () => updateVisibility());
+  el("personId").addEventListener("change", () => updatePoseOptions());
 
   el("uploadPreview").addEventListener("click", (ev) => {
     if (el("collarModule").value !== "manual_point") return;
@@ -310,6 +640,8 @@ HTML = r"""<!doctype html>
     setTxt("pickInfo", `pick: x=${pickX.toFixed(3)}  y=${pickY.toFixed(3)}`);
   });
 
+  setStatus("未上传", "idle");
+  updatePoseOptions();
   updateVisibility();
 </script>
 </body>

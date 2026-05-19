@@ -133,47 +133,114 @@ for i, batch in enumerate(test_dataloader):
     pixel_values_ref_front = batch["pixel_values_ref_front"].to(device='cuda')
     pixel_values_ref_back = batch["pixel_values_ref_back"].to(device='cuda')
     camera_pose = batch["camera_parm"]
-    front_dino_fea = clip_image_encoder(clip_ref_front.to(weight_dtype))
-    back_dino_fea = clip_image_encoder(clip_ref_back.to(weight_dtype))
     img_name = batch["img_name"]
     cloth_name = batch["cloth_name"]
     multi_length = pixel_values.shape[1]
     # dino_fea = dino_fea.unsqueeze(1)
     # print(dino_fea.shape) # [bs,1,768]
     print(img_name)
-    edited_images = pipe(
-        num_inference_steps=num_inference_steps, 
-        guidance_scale=guidance_scale, 
-        front_image=pixel_values_ref_front.to(weight_dtype),
-        back_image=pixel_values_ref_back.to(weight_dtype),
-        pose_image=pixel_values_pose.to(weight_dtype),
-        # camera_pose=camera_pose.to(weight_dtype),
-        camera_pose=camera_pose,
-        agnostic_image=pixel_values_agnostic.to(weight_dtype),
-        generator=generator,
-        front_dino_fea = front_dino_fea,
-        back_dino_fea = back_dino_fea,
-    ).images
 
-    # print('check3', pixel_values.shape, pixel_values_pose.shape, pixel_values_agnostic.shape, pixel_values_ref_front.shape, pixel_values_ref_back.shape)
+    bs = int(pixel_values_pose.shape[0])
+    # For inference on MVHumanNet, multi_length is typically 16 (predefined camera list).
+    # The effective batch in the pipeline is (bs * multi_length). Large values easily OOM.
+    # Keep the config batch size for dataloader throughput, but run the diffusion model per-sample
+    # when the effective batch becomes too large.
+    max_effective_bf = 16
+    run_per_sample = (bs * int(multi_length)) > max_effective_bf
 
-    for batch_idx in range(config.batch_size):
+    def _run_one_sample(bi: int):
+        global image_idx
+        clip_f = clip_ref_front[bi:bi + 1].to(weight_dtype)
+        clip_b = clip_ref_back[bi:bi + 1].to(weight_dtype)
+        front_dino_fea = clip_image_encoder(clip_f)
+        back_dino_fea = clip_image_encoder(clip_b)
 
-        for image_idx in range(multi_length):
-            total_idx = batch_idx*multi_length + image_idx
-            edited_image = edited_images[total_idx]
-            edited_image = torch.tensor(np.array(edited_image)).permute(2,0,1) / 255.0
-            grid = make_image_grid([(pixel_values[batch_idx][image_idx].cpu() / 2 + 0.5),edited_image.cpu(), (pixel_values_pose[batch_idx][image_idx].cpu() / 2 + 0.5), 
-                (pixel_values_agnostic[batch_idx][image_idx].cpu() / 2 + 0.5), (pixel_values_ref_front[batch_idx].cpu() / 2 + 0.5),(pixel_values_ref_back[batch_idx].cpu() / 2 + 0.5)], nrow=2)
-            # save_image(grid, os.path.join(out_dir, ('%d.jpg'%image_idx).zfill(6)))
-            # os.makedirs(os.path.join(out_dir, sample_name[idx].split("_")[0]), exist_ok=True)
-            # save_image(edited_image, os.path.join(out_dir, img_name[idx][:-4]+'_'+cloth_name[idx]))
-            img_name[total_idx] = img_name[total_idx].replace('/','_')
-            cloth_name[batch_idx] = cloth_name[batch_idx].split('/')[-1].split('_')[0]
-            print(img_name[total_idx], cloth_name[batch_idx])
-            sub_cloth_root = os.path.join(out_dir, cloth_name[batch_idx])
+        # keep determinism independent of dataloader batching
+        local_gen = torch.Generator("cuda").manual_seed(int(seed) + 1000 * bi)
+
+        edited_images = pipe(
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            front_image=pixel_values_ref_front[bi:bi + 1].to(weight_dtype),
+            back_image=pixel_values_ref_back[bi:bi + 1].to(weight_dtype),
+            pose_image=pixel_values_pose[bi:bi + 1].to(weight_dtype),
+            camera_pose=camera_pose[bi:bi + 1],
+            agnostic_image=pixel_values_agnostic[bi:bi + 1].to(weight_dtype),
+            generator=local_gen,
+            front_dino_fea=front_dino_fea,
+            back_dino_fea=back_dino_fea,
+        ).images
+
+        cloth_id = cloth_name[bi].split('/')[-1].split('_')[0]
+        sub_cloth_root = os.path.join(out_dir, cloth_id)
+        if not os.path.exists(sub_cloth_root):
+            os.makedirs(sub_cloth_root)
+
+        start = bi * int(multi_length)
+        for fi in range(int(multi_length)):
+            total_idx = start + fi
+            name = img_name[total_idx].replace('/', '_')
+            edited_image = edited_images[fi]
+            edited_image = torch.tensor(np.array(edited_image)).permute(2, 0, 1) / 255.0
+            grid = make_image_grid(
+                [
+                    (pixel_values[bi][fi].cpu() / 2 + 0.5),
+                    edited_image.cpu(),
+                    (pixel_values_pose[bi][fi].cpu() / 2 + 0.5),
+                    (pixel_values_agnostic[bi][fi].cpu() / 2 + 0.5),
+                    (pixel_values_ref_front[bi].cpu() / 2 + 0.5),
+                    (pixel_values_ref_back[bi].cpu() / 2 + 0.5),
+                ],
+                nrow=2,
+            )
+            print(name, cloth_id)
+            save_image(edited_image, os.path.join(sub_cloth_root, name))
+            save_image(grid, os.path.join(sub_cloth_root, 'cond_' + name))
+            image_idx += 1
+
+    if run_per_sample:
+        for bi in range(bs):
+            _run_one_sample(bi)
+    else:
+        front_dino_fea = clip_image_encoder(clip_ref_front.to(weight_dtype))
+        back_dino_fea = clip_image_encoder(clip_ref_back.to(weight_dtype))
+
+        edited_images = pipe(
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            front_image=pixel_values_ref_front.to(weight_dtype),
+            back_image=pixel_values_ref_back.to(weight_dtype),
+            pose_image=pixel_values_pose.to(weight_dtype),
+            camera_pose=camera_pose,
+            agnostic_image=pixel_values_agnostic.to(weight_dtype),
+            generator=generator,
+            front_dino_fea=front_dino_fea,
+            back_dino_fea=back_dino_fea,
+        ).images
+
+        for batch_idx in range(bs):
+            cloth_id = cloth_name[batch_idx].split('/')[-1].split('_')[0]
+            sub_cloth_root = os.path.join(out_dir, cloth_id)
             if not os.path.exists(sub_cloth_root):
                 os.makedirs(sub_cloth_root)
-            save_image(edited_image, os.path.join(out_dir, cloth_name[batch_idx], img_name[total_idx]))
-            save_image(grid, os.path.join(out_dir, cloth_name[batch_idx], 'cond_'+img_name[total_idx]))
-            image_idx +=1
+
+            for fi in range(multi_length):
+                total_idx = batch_idx * multi_length + fi
+                name = img_name[total_idx].replace('/', '_')
+                edited_image = edited_images[total_idx]
+                edited_image = torch.tensor(np.array(edited_image)).permute(2, 0, 1) / 255.0
+                grid = make_image_grid(
+                    [
+                        (pixel_values[batch_idx][fi].cpu() / 2 + 0.5),
+                        edited_image.cpu(),
+                        (pixel_values_pose[batch_idx][fi].cpu() / 2 + 0.5),
+                        (pixel_values_agnostic[batch_idx][fi].cpu() / 2 + 0.5),
+                        (pixel_values_ref_front[batch_idx].cpu() / 2 + 0.5),
+                        (pixel_values_ref_back[batch_idx].cpu() / 2 + 0.5),
+                    ],
+                    nrow=2,
+                )
+                print(name, cloth_id)
+                save_image(edited_image, os.path.join(sub_cloth_root, name))
+                save_image(grid, os.path.join(sub_cloth_root, 'cond_' + name))
+                image_idx += 1

@@ -16,7 +16,7 @@ pretrained_referencenet_path: '/root/autodl-tmp/VTON/VTON360-main/src/multiview_
 out_dir: 'image_output_tryon_mvhumannet'
 
 # batch_size: 2
-batch_size: 1
+batch_size: 2
 dataloader_num_workers: 4
 guidance_scale: 2  # thuman:3 mvhumannet:2
 
@@ -45,4 +45,4 @@ infer_data:
 
 fusion_blocks: "full"
 image_finetune: true
-num_inference_steps: 30
+num_inference_steps: 50

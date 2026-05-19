@@ -1,100 +1,92 @@
-/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs/20260420235003a1b02d_0001_input_rgba.png
+STAGE: rgba
+PERFORMANCE WARNING:
+Thresholded incomplete Cholesky decomposition failed due to insufficient positive-definiteness of matrix A with parameters:
+    discard_threshold = 1.000000e-04
+    shift = 0.000000e+00
+Try decreasing discard_threshold or start with a larger shift
+
+PERFORMANCE WARNING:
+Thresholded incomplete Cholesky decomposition failed due to insufficient positive-definiteness of matrix A with parameters:
+    discard_threshold = 1.000000e-04
+    shift = 1.000000e-04
+Try decreasing discard_threshold or start with a larger shift
+
+PERFORMANCE WARNING:
+Thresholded incomplete Cholesky decomposition failed due to insufficient positive-definiteness of matrix A with parameters:
+    discard_threshold = 1.000000e-04
+    shift = 1.000000e-03
+Try decreasing discard_threshold or start with a larger shift
+
+/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs/20260519161549762a42_0001_input_rgba.png
 
 /root/autodl-tmp/env/wonder3d/lib/python3.10/site-packages/numba/np/ufunc/parallel.py:373: NumbaWarning: [1mThe TBB threading layer requires TBB version 2021 update 6 or later i.e., TBB_INTERFACE_VERSION >= 12060. Found TBB_INTERFACE_VERSION = 12050. The TBB threading layer is disabled.[0m
   warnings.warn(problem)
 
-{'pretrained_model_name_or_path': './ckpts', 'revision': None, 'validation_dataset': {'root_dir': '/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs', 'num_views': 6, 'bg_color': 'white', 'img_wh': [256, 256], 'num_validation_samples': 1000, 'crop_size': 192, 'filepaths': ['20260420235003a1b02d_0001_input_rgba.png']}, 'save_dir': '/root/autodl-tmp/VTON/test_data/outputs/wonder3d', 'pred_type': 'joint', 'seed': 42, 'validation_batch_size': 1, 'dataloader_num_workers': 8, 'local_rank': -1, 'pipe_kwargs': {'camera_embedding_type': 'e_de_da_sincos', 'num_views': 6}, 'validation_guidance_scales': [1.0], 'pipe_validation_kwargs': {'eta': 1.0}, 'validation_grid_nrow': 6, 'unet_from_pretrained_kwargs': {'camera_embedding_type': 'e_de_da_sincos', 'projection_class_embeddings_input_dim': 10, 'num_views': 6, 'sample_size': 32, 'cd_attention_mid': True, 'zero_init_conv_in': False, 'zero_init_camera_projection': False}, 'num_views': 6, 'camera_embedding_type': 'e_de_da_sincos', 'enable_xformers_memory_efficient_attention': True}
+STAGE: wonder3d
+{'pretrained_model_name_or_path': './ckpts', 'revision': None, 'validation_dataset': {'root_dir': '/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs', 'num_views': 6, 'bg_color': 'white', 'img_wh': [256, 256], 'num_validation_samples': 1000, 'crop_size': 192, 'filepaths': ['20260519161549762a42_0001_input_rgba.png']}, 'save_dir': '/root/autodl-tmp/VTON/test_data/outputs/wonder3d', 'pred_type': 'joint', 'seed': 42, 'validation_batch_size': 1, 'dataloader_num_workers': 8, 'local_rank': -1, 'pipe_kwargs': {'camera_embedding_type': 'e_de_da_sincos', 'num_views': 6}, 'validation_guidance_scales': [1.0], 'pipe_validation_kwargs': {'eta': 1.0}, 'validation_grid_nrow': 6, 'unet_from_pretrained_kwargs': {'camera_embedding_type': 'e_de_da_sincos', 'projection_class_embeddings_input_dim': 10, 'num_views': 6, 'sample_size': 32, 'cd_attention_mid': True, 'zero_init_conv_in': False, 'zero_init_camera_projection': False}, 'num_views': 6, 'camera_embedding_type': 'e_de_da_sincos', 'enable_xformers_memory_efficient_attention': True}
 xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details.
 use xformers.
-/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs/20260420235003a1b02d_0001_input_rgba.png
+/root/autodl-tmp/VTON/test_data/work/wonder3d_inputs/20260519161549762a42_0001_input_rgba.png
 
 A matching Triton is not available, some optimizations will not be enabled.
 Error caught was: No module named 'triton'
 /root/autodl-tmp/env/wonder3d/lib/python3.10/site-packages/numba/np/ufunc/parallel.py:373: NumbaWarning: [1mThe TBB threading layer requires TBB version 2021 update 6 or later i.e., TBB_INTERFACE_VERSION >= 12060. Found TBB_INTERFACE_VERSION = 12050. The TBB threading layer is disabled.[0m
   warnings.warn(problem)
 Loading pipeline components...:   0%|          | 0/5 [00:00<?, ?it/s]The config attributes {'cross_domain_attention': False, 'joint_attention': False, 'joint_attention_twice': True} were passed to UNetMV2DConditionModel, but are not expected and will be ignored. Please verify your config.json configuration file.
-Loading pipeline components...:  20%|██        | 1/5 [00:01<00:04,  1.25s/it]Loading pipeline components...:  80%|████████  | 4/5 [00:02<00:00,  1.96it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:02<00:00,  2.45it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:02<00:00,  2.08it/s]
+Loading pipeline components...:  40%|████      | 2/5 [00:01<00:02,  1.36it/s]Loading pipeline components...:  80%|████████  | 4/5 [00:02<00:00,  1.85it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:02<00:00,  2.33it/s]Loading pipeline components...: 100%|██████████| 5/5 [00:02<00:00,  2.04it/s]
 You have disabled the safety checker for <class 'mvdiffusion.pipelines.pipeline_mvdiffusion_image.MVDiffusionImagePipeline'> by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at https://github.com/huggingface/diffusers/pull/254 .
 0it [00:00, ?it/s]/root/autodl-tmp/VTON/Wonder3D/Wonder3D-main/mvdiffusion/data/single_image_dataset.py:277: UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:230.)
   elevations = torch.as_tensor(elevations).float().squeeze(1)
-1it [00:43, 43.40s/it]1it [00:43, 43.57s/it]
+1it [00:41, 41.95s/it]1it [00:42, 42.16s/it]
 
-/root/autodl-tmp/VTON/test_data/work/wonder3d_fixed/20260420235003a1b02d_0001_input_rgba/front_rgba.png
+STAGE: fix_front
+/root/autodl-tmp/VTON/test_data/work/wonder3d_fixed/20260519161549762a42_0001_input_rgba/front_rgba.png
 
+STAGE: modules
+STAGE: vton360
+STAGE: vton_front
 using mvhumannet
 loaded PoseGuider's pretrained weights from /root/autodl-tmp/VTON/VTON360-main/src/multiview_consist_edit/checkpoints/mvhumannet_tryon_mvattn_multi/checkpoint-40000/pose.ckpt ...
 ### PoseGuider's Parameters: 0.206267 M
-['100007/resized_img/1005/CC32871A005_1005_img.jpg', '100007/resized_img/1005/CC32871A016_1005_img.jpg', '100007/resized_img/1005/CC32871A017_1005_img.jpg', '100007/resized_img/1005/CC32871A023_1005_img.jpg', '100007/resized_img/1005/CC32871A027_1005_img.jpg', '100007/resized_img/1005/CC32871A030_1005_img.jpg', '100007/resized_img/1005/CC32871A032_1005_img.jpg', '100007/resized_img/1005/CC32871A033_1005_img.jpg', '100007/resized_img/1005/CC32871A034_1005_img.jpg', '100007/resized_img/1005/CC32871A035_1005_img.jpg', '100007/resized_img/1005/CC32871A038_1005_img.jpg', '100007/resized_img/1005/CC32871A050_1005_img.jpg', '100007/resized_img/1005/CC32871A051_1005_img.jpg', '100007/resized_img/1005/CC32871A052_1005_img.jpg', '100007/resized_img/1005/CC32871A059_1005_img.jpg', '100007/resized_img/1005/CC32871A060_1005_img.jpg']
-100007_resized_img_1005_CC32871A005_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A016_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A017_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A023_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A027_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A030_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A032_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A033_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A034_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A035_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A038_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A050_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A051_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A052_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A059_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A060_1005_img.jpg 20260420235003a1b02d
 ['100067/resized_img/0320/CC32871A005_0320_img.jpg', '100067/resized_img/0320/CC32871A016_0320_img.jpg', '100067/resized_img/0320/CC32871A017_0320_img.jpg', '100067/resized_img/0320/CC32871A023_0320_img.jpg', '100067/resized_img/0320/CC32871A027_0320_img.jpg', '100067/resized_img/0320/CC32871A030_0320_img.jpg', '100067/resized_img/0320/CC32871A032_0320_img.jpg', '100067/resized_img/0320/CC32871A033_0320_img.jpg', '100067/resized_img/0320/CC32871A034_0320_img.jpg', '100067/resized_img/0320/CC32871A035_0320_img.jpg', '100067/resized_img/0320/CC32871A038_0320_img.jpg', '100067/resized_img/0320/CC32871A050_0320_img.jpg', '100067/resized_img/0320/CC32871A051_0320_img.jpg', '100067/resized_img/0320/CC32871A052_0320_img.jpg', '100067/resized_img/0320/CC32871A059_0320_img.jpg', '100067/resized_img/0320/CC32871A060_0320_img.jpg']
-100067_resized_img_0320_CC32871A005_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A016_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A017_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A023_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A027_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A030_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A032_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A033_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A034_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A035_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A038_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A050_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A051_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A052_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A059_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A060_0320_img.jpg 20260420235003a1b02d
+100067_resized_img_0320_CC32871A005_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A016_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A017_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A023_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A027_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A030_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A032_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A033_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A034_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A035_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A038_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A050_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A051_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A052_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A059_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A060_0320_img.jpg 20260519161549762a42
+STAGE: vton_back
 using mvhumannet
 loaded PoseGuider's pretrained weights from /root/autodl-tmp/VTON/VTON360-main/src/multiview_consist_edit/checkpoints/mvhumannet_tryon_mvattn_multi/checkpoint-40000/pose.ckpt ...
 ### PoseGuider's Parameters: 0.206267 M
-['100007/resized_img/1005/CC32871A004_1005_img.jpg', '100007/resized_img/1005/CC32871A010_1005_img.jpg', '100007/resized_img/1005/CC32871A013_1005_img.jpg', '100007/resized_img/1005/CC32871A022_1005_img.jpg', '100007/resized_img/1005/CC32871A029_1005_img.jpg', '100007/resized_img/1005/CC32871A031_1005_img.jpg', '100007/resized_img/1005/CC32871A037_1005_img.jpg', '100007/resized_img/1005/CC32871A039_1005_img.jpg', '100007/resized_img/1005/CC32871A040_1005_img.jpg', '100007/resized_img/1005/CC32871A041_1005_img.jpg', '100007/resized_img/1005/CC32871A044_1005_img.jpg', '100007/resized_img/1005/CC32871A046_1005_img.jpg', '100007/resized_img/1005/CC32871A048_1005_img.jpg', '100007/resized_img/1005/CC32871A055_1005_img.jpg', '100007/resized_img/1005/CC32871A057_1005_img.jpg', '100007/resized_img/1005/CC32871A058_1005_img.jpg']
-100007_resized_img_1005_CC32871A004_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A010_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A013_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A022_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A029_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A031_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A037_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A039_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A040_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A041_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A044_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A046_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A048_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A055_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A057_1005_img.jpg 20260420235003a1b02d
-100007_resized_img_1005_CC32871A058_1005_img.jpg 20260420235003a1b02d
 ['100067/resized_img/0320/CC32871A004_0320_img.jpg', '100067/resized_img/0320/CC32871A010_0320_img.jpg', '100067/resized_img/0320/CC32871A013_0320_img.jpg', '100067/resized_img/0320/CC32871A022_0320_img.jpg', '100067/resized_img/0320/CC32871A029_0320_img.jpg', '100067/resized_img/0320/CC32871A031_0320_img.jpg', '100067/resized_img/0320/CC32871A037_0320_img.jpg', '100067/resized_img/0320/CC32871A039_0320_img.jpg', '100067/resized_img/0320/CC32871A040_0320_img.jpg', '100067/resized_img/0320/CC32871A041_0320_img.jpg', '100067/resized_img/0320/CC32871A044_0320_img.jpg', '100067/resized_img/0320/CC32871A046_0320_img.jpg', '100067/resized_img/0320/CC32871A048_0320_img.jpg', '100067/resized_img/0320/CC32871A055_0320_img.jpg', '100067/resized_img/0320/CC32871A057_0320_img.jpg', '100067/resized_img/0320/CC32871A058_0320_img.jpg']
-100067_resized_img_0320_CC32871A004_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A010_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A013_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A022_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A029_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A031_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A037_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A039_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A040_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A041_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A044_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A046_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A048_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A055_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A057_0320_img.jpg 20260420235003a1b02d
-100067_resized_img_0320_CC32871A058_0320_img.jpg 20260420235003a1b02d
+100067_resized_img_0320_CC32871A004_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A010_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A013_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A022_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A029_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A031_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A037_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A039_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A040_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A041_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A044_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A046_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A048_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A055_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A057_0320_img.jpg 20260519161549762a42
+100067_resized_img_0320_CC32871A058_0320_img.jpg 20260519161549762a42
+TIMING: vton_front_sec=153.887 vton_back_sec=154.030 vton_front_pct=50.0% vton_back_pct=50.0%
 
 /root/autodl-tmp/env/vton360tmp/lib/python3.10/site-packages/diffusers/models/unet_2d_blocks.py:249: FutureWarning: `AutoencoderTinyBlock` is deprecated and will be removed in version 0.29. Importing `AutoencoderTinyBlock` from `diffusers.models.unet_2d_blocks` is deprecated and this will be removed in a future version. Please use `from diffusers.models.unets.unet_2d_blocks import AutoencoderTinyBlock`, instead.
   deprecate("AutoencoderTinyBlock", "0.29", deprecation_message)
@@ -158,8 +150,7 @@ loaded PoseGuider's pretrained weights from /root/autodl-tmp/VTON/VTON360-main/s
   deprecate("get_up_block", "0.29", deprecation_message)
 /root/autodl-tmp/env/vton360tmp/lib/python3.10/site-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
   return self.fget.__get__(instance, owner)()
-  0%|          | 0/30 [00:00<?, ?it/s]  3%|▎         | 1/30 [00:04<02:09,  4.47s/it]  7%|▋         | 2/30 [00:07<01:35,  3.41s/it] 10%|█         | 3/30 [00:09<01:22,  3.07s/it] 13%|█▎        | 4/30 [00:12<01:15,  2.92s/it] 17%|█▋        | 5/30 [00:15<01:10,  2.83s/it] 20%|██        | 6/30 [00:17<01:06,  2.78s/it] 23%|██▎       | 7/30 [00:20<01:03,  2.74s/it] 27%|██▋       | 8/30 [00:23<00:59,  2.72s/it] 30%|███       | 9/30 [00:25<00:56,  2.71s/it] 33%|███▎      | 10/30 [00:28<00:54,  2.70s/it] 37%|███▋      | 11/30 [00:31<00:51,  2.70s/it] 40%|████      | 12/30 [00:33<00:48,  2.70s/it] 43%|████▎     | 13/30 [00:36<00:45,  2.69s/it] 47%|████▋     | 14/30 [00:39<00:43,  2.69s/it] 50%|█████     | 15/30 [00:41<00:40,  2.69s/it] 53%|█████▎    | 16/30 [00:44<00:37,  2.69s/it] 57%|█████▋    | 17/30 [00:47<00:35,  2.69s/it] 60%|██████    | 18/30 [00:50<00:32,  2.70s/it] 63%|██████▎   | 19/30 [00:52<00:29,  2.70s/it] 67%|██████▋   | 20/30 [00:55<00:26,  2.70s/it] 70%|███████   | 21/30 [00:58<00:24,  2.69s/it] 73%|███████▎  | 22/30 [01:00<00:21,  2.70s/it] 77%|███████▋  | 23/30 [01:03<00:18,  2.69s/it] 80%|████████  | 24/30 [01:06<00:16,  2.69s/it] 83%|████████▎ | 25/30 [01:08<00:13,  2.69s/it] 87%|████████▋ | 26/30 [01:11<00:10,  2.69s/it] 90%|█████████ | 27/30 [01:14<00:08,  2.69s/it] 93%|█████████▎| 28/30 [01:17<00:05,  2.69s/it] 97%|█████████▋| 29/30 [01:19<00:02,  2.69s/it]100%|██████████| 30/30 [01:22<00:00,  2.69s/it]100%|██████████| 30/30 [01:22<00:00,  2.75s/it]
-  0%|          | 0/30 [00:00<?, ?it/s]  3%|▎         | 1/30 [00:04<02:06,  4.36s/it]  7%|▋         | 2/30 [00:07<01:34,  3.37s/it] 10%|█         | 3/30 [00:09<01:22,  3.06s/it] 13%|█▎        | 4/30 [00:12<01:15,  2.91s/it] 17%|█▋        | 5/30 [00:15<01:10,  2.84s/it] 20%|██        | 6/30 [00:17<01:06,  2.79s/it] 23%|██▎       | 7/30 [00:20<01:03,  2.76s/it] 27%|██▋       | 8/30 [00:23<01:00,  2.74s/it] 30%|███       | 9/30 [00:25<00:57,  2.72s/it] 33%|███▎      | 10/30 [00:28<00:54,  2.71s/it] 37%|███▋      | 11/30 [00:31<00:51,  2.71s/it] 40%|████      | 12/30 [00:33<00:48,  2.70s/it] 43%|████▎     | 13/30 [00:36<00:45,  2.70s/it] 47%|████▋     | 14/30 [00:39<00:43,  2.70s/it] 50%|█████     | 15/30 [00:42<00:40,  2.70s/it] 53%|█████▎    | 16/30 [00:44<00:37,  2.70s/it] 57%|█████▋    | 17/30 [00:47<00:35,  2.69s/it] 60%|██████    | 18/30 [00:50<00:32,  2.69s/it] 63%|██████▎   | 19/30 [00:52<00:29,  2.69s/it] 67%|██████▋   | 20/30 [00:55<00:26,  2.70s/it] 70%|███████   | 21/30 [00:58<00:24,  2.70s/it] 73%|███████▎  | 22/30 [01:00<00:21,  2.70s/it] 77%|███████▋  | 23/30 [01:03<00:18,  2.70s/it] 80%|████████  | 24/30 [01:06<00:16,  2.69s/it] 83%|████████▎ | 25/30 [01:09<00:13,  2.69s/it] 87%|████████▋ | 26/30 [01:11<00:10,  2.69s/it] 90%|█████████ | 27/30 [01:14<00:08,  2.69s/it] 93%|█████████▎| 28/30 [01:17<00:05,  2.70s/it] 97%|█████████▋| 29/30 [01:19<00:02,  2.70s/it]100%|██████████| 30/30 [01:22<00:00,  2.70s/it]100%|██████████| 30/30 [01:22<00:00,  2.75s/it]
+  0%|          | 0/50 [00:00<?, ?it/s]  2%|▏         | 1/50 [00:04<03:37,  4.45s/it]  4%|▍         | 2/50 [00:07<02:43,  3.40s/it]  6%|▌         | 3/50 [00:09<02:24,  3.07s/it]  8%|▊         | 4/50 [00:12<02:13,  2.91s/it] 10%|█         | 5/50 [00:15<02:07,  2.82s/it] 12%|█▏        | 6/50 [00:17<02:02,  2.78s/it] 14%|█▍        | 7/50 [00:20<01:58,  2.75s/it] 16%|█▌        | 8/50 [00:23<01:54,  2.73s/it] 18%|█▊        | 9/50 [00:25<01:51,  2.71s/it] 20%|██        | 10/50 [00:28<01:47,  2.70s/it] 22%|██▏       | 11/50 [00:31<01:44,  2.69s/it] 24%|██▍       | 12/50 [00:33<01:42,  2.69s/it] 26%|██▌       | 13/50 [00:36<01:39,  2.69s/it] 28%|██▊       | 14/50 [00:39<01:36,  2.68s/it] 30%|███       | 15/50 [00:41<01:33,  2.69s/it] 32%|███▏      | 16/50 [00:44<01:31,  2.69s/it] 34%|███▍      | 17/50 [00:47<01:28,  2.69s/it] 36%|███▌      | 18/50 [00:50<01:26,  2.69s/it] 38%|███▊      | 19/50 [00:52<01:23,  2.69s/it] 40%|████      | 20/50 [00:55<01:20,  2.70s/it] 42%|████▏     | 21/50 [00:58<01:18,  2.70s/it] 44%|████▍     | 22/50 [01:00<01:15,  2.70s/it] 46%|████▌     | 23/50 [01:03<01:12,  2.70s/it] 48%|████▊     | 24/50 [01:06<01:10,  2.70s/it] 50%|█████     | 25/50 [01:08<01:07,  2.70s/it] 52%|█████▏    | 26/50 [01:11<01:04,  2.70s/it] 54%|█████▍    | 27/50 [01:14<01:02,  2.70s/it] 56%|█████▌    | 28/50 [01:17<00:59,  2.70s/it] 58%|█████▊    | 29/50 [01:19<00:56,  2.70s/it] 60%|██████    | 30/50 [01:22<00:54,  2.70s/it] 62%|██████▏   | 31/50 [01:25<00:51,  2.70s/it] 64%|██████▍   | 32/50 [01:27<00:48,  2.71s/it] 66%|██████▌   | 33/50 [01:30<00:46,  2.71s/it] 68%|██████▊   | 34/50 [01:33<00:43,  2.71s/it] 70%|███████   | 35/50 [01:35<00:40,  2.71s/it] 72%|███████▏  | 36/50 [01:38<00:37,  2.71s/it] 74%|███████▍  | 37/50 [01:41<00:35,  2.71s/it] 76%|███████▌  | 38/50 [01:44<00:32,  2.71s/it] 78%|███████▊  | 39/50 [01:46<00:29,  2.71s/it] 80%|████████  | 40/50 [01:49<00:27,  2.71s/it] 82%|████████▏ | 41/50 [01:52<00:24,  2.71s/it] 84%|████████▍ | 42/50 [01:54<00:21,  2.70s/it] 86%|████████▌ | 43/50 [01:57<00:18,  2.70s/it] 88%|████████▊ | 44/50 [02:00<00:16,  2.70s/it] 90%|█████████ | 45/50 [02:02<00:13,  2.70s/it] 92%|█████████▏| 46/50 [02:05<00:10,  2.70s/it] 94%|█████████▍| 47/50 [02:08<00:08,  2.70s/it] 96%|█████████▌| 48/50 [02:11<00:05,  2.70s/it] 98%|█████████▊| 49/50 [02:13<00:02,  2.70s/it]100%|██████████| 50/50 [02:16<00:00,  2.70s/it]100%|██████████| 50/50 [02:16<00:00,  2.73s/it]
 /root/autodl-tmp/env/vton360tmp/lib/python3.10/site-packages/diffusers/models/unet_2d_blocks.py:249: FutureWarning: `AutoencoderTinyBlock` is deprecated and will be removed in version 0.29. Importing `AutoencoderTinyBlock` from `diffusers.models.unet_2d_blocks` is deprecated and this will be removed in a future version. Please use `from diffusers.models.unets.unet_2d_blocks import AutoencoderTinyBlock`, instead.
   deprecate("AutoencoderTinyBlock", "0.29", deprecation_message)
 /root/autodl-tmp/env/vton360tmp/lib/python3.10/site-packages/diffusers/models/unet_2d_blocks.py:254: FutureWarning: `UNetMidBlock2D` is deprecated and will be removed in version 0.29. Importing `UNetMidBlock2D` from `diffusers.models.unet_2d_blocks` is deprecated and this will be removed in a future version. Please use `from diffusers.models.unets.unet_2d_blocks import UNetMidBlock2D`, instead.
@@ -222,7 +213,13 @@ loaded PoseGuider's pretrained weights from /root/autodl-tmp/VTON/VTON360-main/s
   deprecate("get_up_block", "0.29", deprecation_message)
 /root/autodl-tmp/env/vton360tmp/lib/python3.10/site-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
   return self.fget.__get__(instance, owner)()
-  0%|          | 0/30 [00:00<?, ?it/s]  3%|▎         | 1/30 [00:04<02:19,  4.80s/it]  7%|▋         | 2/30 [00:07<01:39,  3.55s/it] 10%|█         | 3/30 [00:10<01:25,  3.16s/it] 13%|█▎        | 4/30 [00:12<01:17,  2.97s/it] 17%|█▋        | 5/30 [00:15<01:11,  2.87s/it] 20%|██        | 6/30 [00:18<01:07,  2.81s/it] 23%|██▎       | 7/30 [00:20<01:03,  2.77s/it] 27%|██▋       | 8/30 [00:23<01:00,  2.75s/it] 30%|███       | 9/30 [00:26<00:57,  2.73s/it] 33%|███▎      | 10/30 [00:29<00:54,  2.72s/it] 37%|███▋      | 11/30 [00:31<00:51,  2.72s/it] 40%|████      | 12/30 [00:34<00:48,  2.71s/it] 43%|████▎     | 13/30 [00:37<00:46,  2.71s/it] 47%|████▋     | 14/30 [00:39<00:43,  2.70s/it] 50%|█████     | 15/30 [00:42<00:40,  2.70s/it] 53%|█████▎    | 16/30 [00:45<00:37,  2.70s/it] 57%|█████▋    | 17/30 [00:47<00:35,  2.69s/it] 60%|██████    | 18/30 [00:50<00:32,  2.69s/it] 63%|██████▎   | 19/30 [00:53<00:29,  2.69s/it] 67%|██████▋   | 20/30 [00:55<00:26,  2.69s/it] 70%|███████   | 21/30 [00:58<00:24,  2.69s/it] 73%|███████▎  | 22/30 [01:01<00:21,  2.69s/it] 77%|███████▋  | 23/30 [01:04<00:18,  2.69s/it] 80%|████████  | 24/30 [01:06<00:16,  2.69s/it] 83%|████████▎ | 25/30 [01:09<00:13,  2.69s/it] 87%|████████▋ | 26/30 [01:12<00:10,  2.69s/it] 90%|█████████ | 27/30 [01:14<00:08,  2.69s/it] 93%|█████████▎| 28/30 [01:17<00:05,  2.69s/it] 97%|█████████▋| 29/30 [01:20<00:02,  2.69s/it]100%|██████████| 30/30 [01:22<00:00,  2.69s/it]100%|██████████| 30/30 [01:22<00:00,  2.76s/it]
-  0%|          | 0/30 [00:00<?, ?it/s]  3%|▎         | 1/30 [00:04<02:07,  4.41s/it]  7%|▋         | 2/30 [00:07<01:35,  3.40s/it] 10%|█         | 3/30 [00:09<01:22,  3.07s/it] 13%|█▎        | 4/30 [00:12<01:15,  2.92s/it] 17%|█▋        | 5/30 [00:15<01:10,  2.84s/it] 20%|██        | 6/30 [00:17<01:06,  2.79s/it] 23%|██▎       | 7/30 [00:20<01:03,  2.76s/it] 27%|██▋       | 8/30 [00:23<01:00,  2.73s/it] 30%|███       | 9/30 [00:25<00:57,  2.72s/it] 33%|███▎      | 10/30 [00:28<00:54,  2.71s/it] 37%|███▋      | 11/30 [00:31<00:51,  2.71s/it] 40%|████      | 12/30 [00:34<00:48,  2.70s/it] 43%|████▎     | 13/30 [00:36<00:45,  2.70s/it] 47%|████▋     | 14/30 [00:39<00:43,  2.70s/it] 50%|█████     | 15/30 [00:42<00:40,  2.70s/it] 53%|█████▎    | 16/30 [00:44<00:37,  2.69s/it] 57%|█████▋    | 17/30 [00:47<00:35,  2.69s/it] 60%|██████    | 18/30 [00:50<00:32,  2.69s/it] 63%|██████▎   | 19/30 [00:52<00:29,  2.70s/it] 67%|██████▋   | 20/30 [00:55<00:26,  2.70s/it] 70%|███████   | 21/30 [00:58<00:24,  2.70s/it] 73%|███████▎  | 22/30 [01:00<00:21,  2.70s/it] 77%|███████▋  | 23/30 [01:03<00:18,  2.70s/it] 80%|████████  | 24/30 [01:06<00:16,  2.70s/it] 83%|████████▎ | 25/30 [01:09<00:13,  2.70s/it] 87%|████████▋ | 26/30 [01:11<00:10,  2.70s/it] 90%|█████████ | 27/30 [01:14<00:08,  2.70s/it] 93%|█████████▎| 28/30 [01:17<00:05,  2.70s/it] 97%|█████████▋| 29/30 [01:19<00:02,  2.70s/it]100%|██████████| 30/30 [01:22<00:00,  2.70s/it]100%|██████████| 30/30 [01:22<00:00,  2.75s/it]
+  0%|          | 0/50 [00:00<?, ?it/s]  2%|▏         | 1/50 [00:04<03:34,  4.39s/it]  4%|▍         | 2/50 [00:07<02:42,  3.38s/it]  6%|▌         | 3/50 [00:09<02:23,  3.06s/it]  8%|▊         | 4/50 [00:12<02:13,  2.91s/it] 10%|█         | 5/50 [00:15<02:07,  2.83s/it] 12%|█▏        | 6/50 [00:17<02:02,  2.78s/it] 14%|█▍        | 7/50 [00:20<01:58,  2.75s/it] 16%|█▌        | 8/50 [00:23<01:54,  2.73s/it] 18%|█▊        | 9/50 [00:25<01:51,  2.72s/it] 20%|██        | 10/50 [00:28<01:48,  2.70s/it] 22%|██▏       | 11/50 [00:31<01:45,  2.70s/it] 24%|██▍       | 12/50 [00:33<01:42,  2.70s/it] 26%|██▌       | 13/50 [00:36<01:39,  2.70s/it] 28%|██▊       | 14/50 [00:39<01:37,  2.69s/it] 30%|███       | 15/50 [00:41<01:34,  2.70s/it] 32%|███▏      | 16/50 [00:44<01:31,  2.70s/it] 34%|███▍      | 17/50 [00:47<01:28,  2.70s/it] 36%|███▌      | 18/50 [00:50<01:26,  2.69s/it] 38%|███▊      | 19/50 [00:52<01:23,  2.69s/it] 40%|████      | 20/50 [00:55<01:20,  2.69s/it] 42%|████▏     | 21/50 [00:58<01:18,  2.70s/it] 44%|████▍     | 22/50 [01:00<01:15,  2.70s/it] 46%|████▌     | 23/50 [01:03<01:12,  2.70s/it] 48%|████▊     | 24/50 [01:06<01:10,  2.70s/it] 50%|█████     | 25/50 [01:08<01:07,  2.70s/it] 52%|█████▏    | 26/50 [01:11<01:04,  2.70s/it] 54%|█████▍    | 27/50 [01:14<01:02,  2.70s/it] 56%|█████▌    | 28/50 [01:17<00:59,  2.70s/it] 58%|█████▊    | 29/50 [01:19<00:56,  2.70s/it] 60%|██████    | 30/50 [01:22<00:54,  2.70s/it] 62%|██████▏   | 31/50 [01:25<00:51,  2.70s/it] 64%|██████▍   | 32/50 [01:27<00:48,  2.70s/it] 66%|██████▌   | 33/50 [01:30<00:45,  2.71s/it] 68%|██████▊   | 34/50 [01:33<00:43,  2.71s/it] 70%|███████   | 35/50 [01:36<00:40,  2.71s/it] 72%|███████▏  | 36/50 [01:38<00:37,  2.71s/it] 74%|███████▍  | 37/50 [01:41<00:35,  2.71s/it] 76%|███████▌  | 38/50 [01:44<00:32,  2.71s/it] 78%|███████▊  | 39/50 [01:46<00:29,  2.71s/it] 80%|████████  | 40/50 [01:49<00:27,  2.71s/it] 82%|████████▏ | 41/50 [01:52<00:24,  2.71s/it] 84%|████████▍ | 42/50 [01:54<00:21,  2.71s/it] 86%|████████▌ | 43/50 [01:57<00:18,  2.70s/it] 88%|████████▊ | 44/50 [02:00<00:16,  2.70s/it] 90%|█████████ | 45/50 [02:03<00:13,  2.70s/it] 92%|█████████▏| 46/50 [02:05<00:10,  2.70s/it] 94%|█████████▍| 47/50 [02:08<00:08,  2.70s/it] 96%|█████████▌| 48/50 [02:11<00:05,  2.70s/it] 98%|█████████▊| 49/50 [02:13<00:02,  2.69s/it]100%|██████████| 50/50 [02:16<00:00,  2.70s/it]100%|██████████| 50/50 [02:16<00:00,  2.73s/it]
 
+TIMING SUMMARY:
+TIMING: rgba_sec=10.517 rgba_pct=2.8%
+TIMING: wonder3d_sec=55.483 wonder3d_pct=14.6%
+TIMING: fix_front_sec=1.916 fix_front_pct=0.5%
+TIMING: modules_sec=1.821 modules_pct=0.5%
+TIMING: vton360_sec=309.706 vton360_pct=81.6%
+TIMING: total_sec=379.442
 /root/autodl-tmp/VTON/test_data/outputs

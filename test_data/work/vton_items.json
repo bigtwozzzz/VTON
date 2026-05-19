@@ -1,10 +1,10 @@
 [
   {
-    "src_sem_front": "/root/autodl-tmp/VTON/test_data/work/wonder3d_fixed/20260420235003a1b02d_0001_input_rgba/front_rgba.png",
-    "src_sem_back": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260420235003a1b02d_0001_input_rgba/masked_colors/rgb_000_back.png",
-    "src_sem_left": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260420235003a1b02d_0001_input_rgba/masked_colors/rgb_000_left.png",
-    "src_sem_right": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260420235003a1b02d_0001_input_rgba/masked_colors/rgb_000_right.png",
-    "dst_front": "/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit/cloth/20260420235003a1b02d_0001_front.jpg",
-    "dst_back": "/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit/cloth/20260420235003a1b02d_0001_back.jpg"
+    "src_sem_front": "/root/autodl-tmp/VTON/test_data/work/wonder3d_fixed/20260519161549762a42_0001_input_rgba/front_rgba.png",
+    "src_sem_back": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260519161549762a42_0001_input_rgba/masked_colors/rgb_000_back.png",
+    "src_sem_left": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260519161549762a42_0001_input_rgba/masked_colors/rgb_000_left.png",
+    "src_sem_right": "/root/autodl-tmp/VTON/test_data/outputs/wonder3d/cropsize-192-cfg1.0/20260519161549762a42_0001_input_rgba/masked_colors/rgb_000_right.png",
+    "dst_front": "/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit/cloth/20260519161549762a42_0001_front.jpg",
+    "dst_back": "/root/autodl-tmp/VTON/VTON360-main/src/data/mvhumannet_2D_edit/cloth/20260519161549762a42_0001_back.jpg"
   }
 ]

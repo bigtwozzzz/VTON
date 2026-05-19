@@ -75,6 +75,38 @@ def erode_mask(mask: np.ndarray, iterations: int = 2) -> np.ndarray:
     return m
 
 
+def _pick_plateau_edge_x(top_y: np.ndarray, x_start: int, x_end: int, h: int, side: str) -> int | None:
+    seg = top_y[x_start:x_end].astype(np.float32)
+    if seg.size == 0:
+        return None
+    ymin = float(np.nanmin(seg))
+    if not np.isfinite(ymin):
+        return None
+    tol = float(max(2.0, 0.01 * h))
+    ids = np.where(np.isfinite(seg) & (seg <= ymin + tol))[0]
+    if ids.size == 0:
+        return None
+    splits = np.where(np.diff(ids) > 1)[0]
+    runs = []
+    s = int(ids[0])
+    for k in splits:
+        e = int(ids[k])
+        runs.append((s, e))
+        s = int(ids[k + 1])
+    runs.append((s, int(ids[-1])))
+    min_len = max(3, int(round(0.03 * float(seg.size))))
+    good = [r for r in runs if (r[1] - r[0] + 1) >= min_len]
+    if not good:
+        good = runs
+    if side == "left":
+        r = min(good, key=lambda t: t[0])
+        return int(x_start + r[0])
+    if side == "right":
+        r = max(good, key=lambda t: t[1])
+        return int(x_start + r[1])
+    return None
+
+
 def collar_cut_top_bump(rgb: np.ndarray, alpha: np.ndarray, mask: np.ndarray):
     ys, xs = np.nonzero(mask)
     if len(xs) < 200:
@@ -253,13 +285,10 @@ def collar_neckline_edge(
 
     top_valid = top_y_s.copy()
     top_valid[top_valid >= h] = np.nan
-    left_seg = top_valid[x_search_l0:x_search_l1]
-    right_seg = top_valid[x_search_r0:x_search_r1]
-    if np.all(np.isnan(left_seg)) or np.all(np.isnan(right_seg)):
+    peak_xL = _pick_plateau_edge_x(top_valid, x_search_l0, x_search_l1, h, side="left")
+    peak_xR = _pick_plateau_edge_x(top_valid, x_search_r0, x_search_r1, h, side="right")
+    if peak_xL is None or peak_xR is None:
         return rgb, alpha, mask, None
-
-    peak_xL = int(x_search_l0 + int(np.nanargmin(left_seg)))
-    peak_xR = int(x_search_r0 + int(np.nanargmin(right_seg)))
     if peak_xR <= peak_xL + 20:
         return rgb, alpha, mask, None
     peak_yL = float(top_y_s[peak_xL])
@@ -583,17 +612,17 @@ def seam_fix_side_views(
         out[region_mask] = adj[region_mask]
         return out
 
-    def center_strip(src_rgb: np.ndarray, src_mask: np.ndarray, src_alpha: np.ndarray):
+    def mid_patch(src_rgb: np.ndarray, src_mask: np.ndarray, src_alpha: np.ndarray, patch_w: int):
         sx0, sx1 = bbox_from_mask(src_mask)
         mid = int(0.5 * (sx0 + sx1))
-        half = band_w // 2
+        half = patch_w // 2
         s0 = max(0, mid - half)
-        s1 = min(w, s0 + band_w)
-        s0 = max(0, s1 - band_w)
-        strip_rgb = src_rgb[:, s0:s1, :].copy()
-        strip_a = src_alpha[:, s0:s1].copy()
-        strip_m = src_mask[:, s0:s1].copy()
-        return strip_rgb, strip_a, strip_m
+        s1 = min(w, s0 + patch_w)
+        s0 = max(0, s1 - patch_w)
+        patch_rgb = src_rgb[:, s0:s1, :].copy()
+        patch_a = src_alpha[:, s0:s1].copy()
+        patch_m = src_mask[:, s0:s1].copy()
+        return patch_rgb, patch_a, patch_m
 
     def estimate_torso_rows(union_mask: np.ndarray) -> np.ndarray:
         widths = np.zeros((h,), dtype=np.float32)
@@ -613,12 +642,101 @@ def seam_fix_side_views(
         torso[int(0.92 * h) :] = False
         return torso
 
+    def _gray(rgb: np.ndarray) -> np.ndarray:
+        return (0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]).astype(np.float32)
+
+    def _corr(a: np.ndarray, b: np.ndarray) -> float:
+        a = a.astype(np.float32).reshape(-1)
+        b = b.astype(np.float32).reshape(-1)
+        if a.size < 80 or b.size != a.size:
+            return -1e9
+        a = a - float(a.mean())
+        b = b - float(b.mean())
+        sa = float(a.std()) + 1e-6
+        sb = float(b.std()) + 1e-6
+        return float(np.mean((a / sa) * (b / sb)))
+
+    def _best_offsets_for_blocks(
+        band_slice: slice,
+        patch_rgb: np.ndarray,
+        patch_a: np.ndarray,
+        patch_m: np.ndarray,
+        torso_rows: np.ndarray,
+        block_h: int,
+    ) -> np.ndarray:
+        patch_w = patch_rgb.shape[1]
+        max_off = max(0, patch_w - band_w)
+        if max_off <= 0:
+            return np.zeros((int(np.ceil(h / float(block_h))),), dtype=np.int32)
+
+        f_band = front_rgb[:, band_slice, :]
+        b_band = back_rgb[:, band_slice, :]
+        f_m = front_mask[:, band_slice] & (front_alpha[:, band_slice] > 0.85)
+        b_m = back_mask[:, band_slice] & (back_alpha[:, band_slice] > 0.85)
+        p_m = patch_m & (patch_a > 0.85)
+
+        offsets = np.zeros((int(np.ceil(h / float(block_h))),), dtype=np.int32)
+        f_gray = _gray(f_band)
+        b_gray = _gray(b_band)
+        p_gray = _gray(patch_rgb)
+
+        for bi, y0 in enumerate(range(0, h, block_h)):
+            y1 = min(h, y0 + block_h)
+            torso2d = torso_rows[y0:y1, None]
+            fm = f_m[y0:y1] & torso2d
+            bm = b_m[y0:y1] & torso2d
+            pm = p_m[y0:y1]
+            if (fm | bm).sum() < 120 or pm.sum() < 120:
+                offsets[bi] = int(max_off // 2)
+                continue
+
+            best_o = 0
+            best_s = -1e9
+            for o in range(0, max_off + 1):
+                pw = p_gray[y0:y1, o : o + band_w]
+                pmw = pm[:, o : o + band_w]
+                s = 0.0
+                if fm.sum() >= 80:
+                    mm = fm & pmw
+                    if mm.sum() >= 80:
+                        s += _corr(pw[mm], f_gray[y0:y1][mm])
+                if bm.sum() >= 80:
+                    mm = bm & pmw
+                    if mm.sum() >= 80:
+                        s += _corr(pw[mm], b_gray[y0:y1][mm])
+                if s > best_s:
+                    best_s = s
+                    best_o = o
+            offsets[bi] = int(best_o)
+
+        return offsets
+
+    def _build_ref_band(
+        band_slice: slice,
+        patch_rgb: np.ndarray,
+        patch_a: np.ndarray,
+        patch_m: np.ndarray,
+        torso_rows: np.ndarray,
+    ):
+        block_h = int(np.clip(0.07 * h, 20, 56))
+        offsets = _best_offsets_for_blocks(band_slice, patch_rgb, patch_a, patch_m, torso_rows, block_h)
+        ref_rgb = np.zeros((h, band_w, 3), dtype=np.float32)
+        ref_a = np.zeros((h, band_w), dtype=np.float32)
+        ref_m = np.zeros((h, band_w), dtype=bool)
+        for bi, y0 in enumerate(range(0, h, block_h)):
+            y1 = min(h, y0 + block_h)
+            o = int(offsets[bi])
+            ref_rgb[y0:y1] = patch_rgb[y0:y1, o : o + band_w]
+            ref_a[y0:y1] = patch_a[y0:y1, o : o + band_w]
+            ref_m[y0:y1] = patch_m[y0:y1, o : o + band_w]
+        return ref_rgb, ref_a, ref_m
+
     def transfer_to_band(
         band_slice: slice,
         weight_1d: np.ndarray,
-        strip_rgb: np.ndarray,
-        strip_a: np.ndarray,
-        strip_m: np.ndarray,
+        patch_rgb: np.ndarray,
+        patch_a: np.ndarray,
+        patch_m: np.ndarray,
     ):
         nonlocal front_rgb, back_rgb
 
@@ -626,45 +744,51 @@ def seam_fix_side_views(
         b_band = back_rgb[:, band_slice, :]
         f_m = front_mask[:, band_slice] & (front_alpha[:, band_slice] > 0.85)
         b_m = back_mask[:, band_slice] & (back_alpha[:, band_slice] > 0.85)
-        s_m = strip_m & (strip_a > 0.85)
-
         torso_rows = estimate_torso_rows(front_mask | back_mask)
         torso_rows_2d = torso_rows[:, None]
 
-        ref_mask = erode_mask((f_m | b_m) & s_m, iterations=1)
-        if ref_mask.sum() < 150:
+        patch_w = int(patch_rgb.shape[1])
+        if patch_w < band_w:
+            return
+
+        ref_rgb, ref_a, ref_m = _build_ref_band(band_slice, patch_rgb, patch_a, patch_m, torso_rows)
+        s_m = ref_m & (ref_a > 0.85)
+
+        ref_mask = erode_mask((f_m | b_m) & s_m & torso_rows_2d, iterations=1)
+        if ref_mask.sum() < 180:
             return
 
         ref_pixels = np.concatenate([f_band[ref_mask], b_band[ref_mask]], axis=0)
-        src_pixels = strip_rgb[ref_mask]
-        if ref_pixels.shape[0] < 50 or src_pixels.shape[0] < 50:
+        src_pixels = ref_rgb[ref_mask]
+        if ref_pixels.shape[0] < 80 or src_pixels.shape[0] < 80:
             return
 
         src_mean, src_std = robust_mean_std(src_pixels)
         tgt_mean, tgt_std = robust_mean_std(ref_pixels)
-        strip_adj = apply_match(strip_rgb, strip_m, src_mean, src_std, tgt_mean, tgt_std)
+        ref_adj = apply_match(ref_rgb, ref_m, src_mean, src_std, tgt_mean, tgt_std)
 
         ww = np.tile(weight_1d[None, :, None], (h, 1, 1)).astype(np.float32)
-        ww = ww * strip_a[:, :, None].astype(np.float32)
-
-        # 只在“躯干行”做融合，尽量避免袖口/领口等细节花纹被破坏
-        use_f = front_mask[:, band_slice] & strip_m & torso_rows_2d
-        use_b = back_mask[:, band_slice] & strip_m & torso_rows_2d
+        ww = ww * ref_a[:, :, None].astype(np.float32)
         ww = ww * torso_rows_2d[:, :, None].astype(np.float32)
 
-        front_rgb[:, band_slice, :][use_f] = (1.0 - ww[use_f]) * f_band[use_f] + ww[use_f] * strip_adj[use_f]
-        back_rgb[:, band_slice, :][use_b] = (1.0 - ww[use_b]) * b_band[use_b] + ww[use_b] * strip_adj[use_b]
+        use_f = front_mask[:, band_slice] & ref_m & torso_rows_2d
+        use_b = back_mask[:, band_slice] & ref_m & torso_rows_2d
 
-    left_strip_rgb, left_strip_a, left_strip_m = center_strip(left_rgb, left_mask, left_alpha)
-    right_strip_rgb, right_strip_a, right_strip_m = center_strip(right_rgb, right_mask, right_alpha)
+        front_rgb[:, band_slice, :][use_f] = (1.0 - ww[use_f]) * f_band[use_f] + ww[use_f] * ref_adj[use_f]
+        back_rgb[:, band_slice, :][use_b] = (1.0 - ww[use_b]) * b_band[use_b] + ww[use_b] * ref_adj[use_b]
+
+    patch_w = int(np.clip(3 * band_w, band_w + 8, int(0.60 * w)))
+    patch_w = max(patch_w, band_w)
+    left_patch_rgb, left_patch_a, left_patch_m = mid_patch(left_rgb, left_mask, left_alpha, patch_w)
+    right_patch_rgb, right_patch_a, right_patch_m = mid_patch(right_rgb, right_mask, right_alpha, patch_w)
 
     left_band = slice(x0, min(w, x0 + band_w))
     left_w = np.linspace(1.0, 0.0, left_band.stop - left_band.start, dtype=np.float32)
-    transfer_to_band(left_band, left_w, left_strip_rgb, left_strip_a, left_strip_m)
+    transfer_to_band(left_band, left_w, left_patch_rgb, left_patch_a, left_patch_m)
 
     right_band = slice(max(0, x1 - band_w + 1), x1 + 1)
     right_w = np.linspace(0.0, 1.0, right_band.stop - right_band.start, dtype=np.float32)[::-1]
-    transfer_to_band(right_band, right_w, right_strip_rgb, right_strip_a, right_strip_m)
+    transfer_to_band(right_band, right_w, right_patch_rgb, right_patch_a, right_patch_m)
 
     return front_rgb, back_rgb
 
@@ -684,6 +808,7 @@ def apply_modules_to_pair(
     neckline_edge_slope_power: float,
     neckline_manual_x: float,
     neckline_manual_y: float,
+    neckline_manual_shape: float,
 ):
     front_rgb, front_a, front_m = load_rgb_and_mask(sem_front_path)
     back_rgb, back_a, back_m = load_rgb_and_mask(sem_back_path)
@@ -736,11 +861,13 @@ def apply_modules_to_pair(
                     top_y[x] = int(np.argmax(col))
             top_y = top_y.astype(np.float32)
             top_y[top_y >= h] = np.nan
-            left_seg = top_y[: max(1, int(0.45 * w))]
-            right_seg = top_y[max(1, int(0.55 * w)) :]
-            if not np.all(np.isnan(left_seg)) and not np.all(np.isnan(right_seg)):
-                peak_xL = int(np.nanargmin(left_seg))
-                peak_xR = int(max(1, int(0.55 * w)) + int(np.nanargmin(right_seg)))
+            x_search_l0 = 0
+            x_search_l1 = max(1, int(0.45 * w))
+            x_search_r0 = max(1, int(0.55 * w))
+            x_search_r1 = w
+            peak_xL = _pick_plateau_edge_x(top_y, x_search_l0, x_search_l1, h, side="left")
+            peak_xR = _pick_plateau_edge_x(top_y, x_search_r0, x_search_r1, h, side="right")
+            if peak_xL is not None and peak_xR is not None:
                 peak_yL = float(top_y[peak_xL])
                 peak_yR = float(top_y[peak_xR])
                 if peak_xR > peak_xL + 20 and not np.isnan(peak_yL) and not np.isnan(peak_yR):
@@ -767,7 +894,8 @@ def apply_modules_to_pair(
                     except Exception:
                         coef = None
                     if coef is not None:
-                        a, bb, c = float(coef[0]), float(coef[1]), float(coef[2])
+                        t01 = float(np.clip((float(neckline_manual_shape) - 0.50) / 2.00, 0.0, 1.0))
+                        p_shape = float(1.0 + (1.0 - t01) * 5.0)
                         # manual_point 以“用户点位”作为硬约束，feather 太大时视觉边界会比点位更靠下
                         # 所以这里用更小的 feather，并对 y_cut 做一点补偿，让可见边界更贴近用户点。
                         feather = int(np.clip(0.02 * h, 2.0, 10.0))
@@ -775,7 +903,17 @@ def apply_modules_to_pair(
                         cutline_points: list[tuple[int, int]] = []
                         alpha_box = front_a[y0 : y1 + 1, x0 : x1 + 1].copy()
                         for x in range(peak_xL, peak_xR + 1):
-                            y_cut = int(np.clip(a * x * x + bb * x + c, 0.0, float(h - 1)))
+                            if x <= px:
+                                denom = float(max(1, px - peak_xL))
+                                t = float(x - peak_xL) / denom
+                                f = 1.0 - (1.0 - t) ** p_shape
+                                y_cut_f = float(peak_yL) + (float(py) - float(peak_yL)) * f
+                            else:
+                                denom = float(max(1, peak_xR - px))
+                                t = float(peak_xR - x) / denom
+                                f = 1.0 - (1.0 - t) ** p_shape
+                                y_cut_f = float(peak_yR) + (float(py) - float(peak_yR)) * f
+                            y_cut = int(np.clip(y_cut_f, 0.0, float(h - 1)))
                             y_cut = max(0, y_cut - bias)
                             cutline_points.append((int(x0 + x), int(y0 + y_cut)))
                             alpha_box[:y_cut, x] = 0.0
@@ -787,6 +925,8 @@ def apply_modules_to_pair(
                         debug["neckline_cutline"] = cutline_points
                         debug["neckline_peaks"] = [(int(x0 + peak_xL), int(y0 + round(peak_yL))), (int(x0 + peak_xR), int(y0 + round(peak_yR)))]
                         debug["neckline_user_point"] = (int(x0 + px), int(y0 + py))
+                        debug["neckline_manual_shape"] = float(neckline_manual_shape)
+                        debug["neckline_manual_p"] = float(p_shape)
 
     if seam_module == "side_views":
         if left_rgb is not None and right_rgb is not None:
@@ -836,6 +976,7 @@ def main() -> None:
     parser.add_argument("--neckline-edge-slope-power", type=float, default=1.6)
     parser.add_argument("--neckline-manual-x", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-y", type=float, default=-1.0)
+    parser.add_argument("--neckline-manual-shape", type=float, default=1.0)
     parser.add_argument("--debug-dir", default="")
     args = parser.parse_args()
 
@@ -857,6 +998,7 @@ def main() -> None:
             float(args.neckline_edge_slope_power),
             float(args.neckline_manual_x),
             float(args.neckline_manual_y),
+            float(args.neckline_manual_shape),
         )
 
         dst_front = it["dst_front"]
