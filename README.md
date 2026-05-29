@@ -46,3 +46,4 @@
 ## 使用方法
 
 项目运行方法见：`项目使用手册.txt`
+环境配置见两个项目的requirements.txt，如果有冲突的部分，参照log/VTON360_env.txt与log/Wonder3D_env.txt进行调整。
