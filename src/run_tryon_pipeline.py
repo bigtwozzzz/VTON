@@ -84,14 +84,8 @@ def main() -> None:
     parser.add_argument("--invert-vton-cloth-names", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--reset-vton360-cloth", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--front-alpha-fix", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--collar-module", choices=["none", "cut_top_bump", "neckline_cut", "neckline_edge", "manual_point"], default="none")
     parser.add_argument("--seam-module", choices=["none", "feather_stats", "side_views"], default="none")
     parser.add_argument("--seam-band-width", type=int, default=24)
-    parser.add_argument("--neckline-edge-ymax-scale", type=float, default=0.40)
-    parser.add_argument("--neckline-edge-depth-bonus", type=float, default=0.28)
-    parser.add_argument("--neckline-edge-depth-penalty", type=float, default=0.04)
-    parser.add_argument("--neckline-edge-slope-strength", type=float, default=0.12)
-    parser.add_argument("--neckline-edge-slope-power", type=float, default=1.6)
     parser.add_argument("--neckline-manual-x", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-y", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-shape", type=float, default=1.0)
@@ -347,23 +341,11 @@ def main() -> None:
             str(modules_script),
             "--items-json",
             str(items_json_path),
-            "--collar-module",
-            args.collar_module,
             "--seam-module",
             args.seam_module,
             "--seam-band-width",
             str(args.seam_band_width),
             "--invert-vton-cloth-names" if args.invert_vton_cloth_names else "--no-invert-vton-cloth-names",
-            "--neckline-edge-ymax-scale",
-            str(args.neckline_edge_ymax_scale),
-            "--neckline-edge-depth-bonus",
-            str(args.neckline_edge_depth_bonus),
-            "--neckline-edge-depth-penalty",
-            str(args.neckline_edge_depth_penalty),
-            "--neckline-edge-slope-strength",
-            str(args.neckline_edge_slope_strength),
-            "--neckline-edge-slope-power",
-            str(args.neckline_edge_slope_power),
             "--neckline-manual-x",
             str(args.neckline_manual_x),
             "--neckline-manual-y",

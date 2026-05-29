@@ -252,10 +252,7 @@ HTML = r"""<!doctype html>
           <label>领口模块</label>
           <select id="collarModule">
             <option value="none">none</option>
-            <option value="neckline_edge" selected>neckline_edge</option>
-            <option value="neckline_cut">neckline_cut</option>
-            <option value="cut_top_bump">cut_top_bump</option>
-            <option value="manual_point">manual_point</option>
+            <option value="manual_point" selected>manual_point</option>
           </select>
         </div>
         <div class="field">
@@ -266,13 +263,14 @@ HTML = r"""<!doctype html>
           </div>
           <div class="help">关闭后将直接使用 Wonder3D 的 masked_colors 输出 alpha</div>
         </div>
+        <div class="field"></div>
       </div>
 
       <div id="manualPickSection" class="pickCard">
         <div class="pickHeader">
           <div>
             <div class="pickTitle">手动点选前领口最低点</div>
-            <div class="help">仅 collar_module=manual_point 生效</div>
+            <div class="help">点选坐标会在后端用于生成裁剪曲线；未点选时默认不裁剪</div>
           </div>
           <div class="mono small" id="pickInfo"></div>
         </div>
@@ -287,34 +285,7 @@ HTML = r"""<!doctype html>
       <details id="collarAdvanced" class="details" open>
         <summary>领口高级参数</summary>
         <div class="detailsBody">
-          <div id="necklineEdgeParams1" class="paramGrid">
-            <div class="field">
-              <label>neckline_edge_ymax_scale <span id="ymaxVal" class="mono"></span></label>
-              <input id="ymax" type="range" min="0.30" max="0.90" step="0.01" value="0.60"/>
-            </div>
-            <div class="field">
-              <label>depth_bonus <span id="bonusVal" class="mono"></span></label>
-              <input id="bonus" type="range" min="0.00" max="1.20" step="0.01" value="0.45"/>
-            </div>
-            <div class="field">
-              <label>depth_penalty <span id="penaltyVal" class="mono"></span></label>
-              <input id="penalty" type="range" min="0.00" max="0.40" step="0.01" value="0.02"/>
-            </div>
-          </div>
-
-          <div id="necklineEdgeParams2" class="paramGrid" style="margin-top: 12px;">
-            <div class="field">
-              <label>slope_strength <span id="slopeStrengthVal" class="mono"></span></label>
-              <input id="slopeStrength" type="range" min="0.00" max="2.00" step="0.01" value="0.80"/>
-            </div>
-            <div class="field">
-              <label>slope_power <span id="slopePowerVal" class="mono"></span></label>
-              <input id="slopePower" type="range" min="0.60" max="3.00" step="0.01" value="1.20"/>
-            </div>
-            <div class="field"></div>
-          </div>
-
-          <div id="manualPointParams" class="paramGrid" style="margin-top: 12px;">
+          <div id="manualPointParams" class="paramGrid">
             <div class="field">
               <label>manual_shape（圆 ↔ 尖） <span id="manualShapeVal" class="mono"></span></label>
               <input id="manualShape" type="range" min="0.50" max="2.50" step="0.05" value="1.00"/>
@@ -398,11 +369,6 @@ HTML = r"""<!doctype html>
   }
 
   bindRange("seamBandWidth", "seamBandWidthVal");
-  bindRange("ymax", "ymaxVal");
-  bindRange("bonus", "bonusVal");
-  bindRange("penalty", "penaltyVal");
-  bindRange("slopeStrength", "slopeStrengthVal");
-  bindRange("slopePower", "slopePowerVal");
   bindRange("manualShape", "manualShapeVal");
 
   let jobId = "";
@@ -434,11 +400,8 @@ HTML = r"""<!doctype html>
   function updateVisibility() {
     const collar = el("collarModule").value;
     const seam = el("seamModule").value;
-
     el("manualPickSection").style.display = (collar === "manual_point") ? "block" : "none";
     el("manualPointParams").style.display = (collar === "manual_point") ? "grid" : "none";
-    el("necklineEdgeParams1").style.display = (collar === "neckline_edge") ? "grid" : "none";
-    el("necklineEdgeParams2").style.display = (collar === "neckline_edge") ? "grid" : "none";
     el("seamParams").style.display = (seam === "none") ? "none" : "";
 
     if (collar !== "manual_point") {
@@ -507,11 +470,6 @@ HTML = r"""<!doctype html>
       collar_module: el("collarModule").value,
       seam_module: el("seamModule").value,
       seam_band_width: asNum("seamBandWidth"),
-      neckline_edge_ymax_scale: asNum("ymax"),
-      neckline_edge_depth_bonus: asNum("bonus"),
-      neckline_edge_depth_penalty: asNum("penalty"),
-      neckline_edge_slope_strength: asNum("slopeStrength"),
-      neckline_edge_slope_power: asNum("slopePower"),
       neckline_manual_x: pickX,
       neckline_manual_y: pickY,
       neckline_manual_shape: asNum("manualShape"),

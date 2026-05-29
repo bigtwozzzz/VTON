@@ -107,391 +107,6 @@ def _pick_plateau_edge_x(top_y: np.ndarray, x_start: int, x_end: int, h: int, si
     return None
 
 
-def collar_cut_top_bump(rgb: np.ndarray, alpha: np.ndarray, mask: np.ndarray):
-    ys, xs = np.nonzero(mask)
-    if len(xs) < 200:
-        return rgb, alpha, mask
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    box = mask[y0 : y1 + 1, x0 : x1 + 1]
-    h, w = box.shape
-    if h < 32 or w < 32:
-        return rgb, alpha, mask
-
-    top_y = np.full((w,), h, dtype=np.int32)
-    for x in range(w):
-        col = box[:, x]
-        if col.any():
-            top_y[x] = int(np.argmax(col))
-
-    edge = max(1, int(0.2 * w))
-    ref = np.concatenate([top_y[:edge], top_y[w - edge :]])
-    ref = ref[ref < h]
-    if ref.size < 10:
-        ref = top_y[top_y < h]
-    if ref.size < 10:
-        return rgb, alpha, mask
-
-    baseline = float(np.median(ref))
-    cutoff = int(max(0.0, baseline - 0.06 * h))
-    if cutoff <= 0:
-        return rgb, alpha, mask
-
-    x_c0 = int(0.25 * w)
-    x_c1 = int(0.75 * w)
-    rm = np.zeros_like(box, dtype=bool)
-    rm[:cutoff, x_c0:x_c1] = box[:cutoff, x_c0:x_c1]
-    if rm.sum() < 50:
-        return rgb, alpha, mask
-
-    alpha_box = alpha[y0 : y1 + 1, x0 : x1 + 1]
-    alpha_box[rm] = 0.0
-    alpha[y0 : y1 + 1, x0 : x1 + 1] = alpha_box
-    mask[y0 : y1 + 1, x0 : x1 + 1][rm] = False
-    return rgb, alpha, mask
-
-
-def collar_neckline_cut(rgb: np.ndarray, alpha: np.ndarray, mask: np.ndarray):
-    ys, xs = np.nonzero(mask)
-    if xs.size < 500:
-        return rgb, alpha, mask
-
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    box = mask[y0 : y1 + 1, x0 : x1 + 1]
-    h, w = box.shape
-    if h < 64 or w < 64:
-        return rgb, alpha, mask
-
-    top_y = np.full((w,), h, dtype=np.int32)
-    for x in range(w):
-        col = box[:, x]
-        if col.any():
-            top_y[x] = int(np.argmax(col))
-
-    valid = top_y < h
-    if valid.sum() < max(20, int(0.25 * w)):
-        return rgb, alpha, mask
-
-    win = max(5, (w // 60) * 2 + 1)
-    pad = win // 2
-    top_y_pad = np.pad(top_y.astype(np.float32), (pad, pad), mode="edge")
-    top_y_s = np.empty_like(top_y_pad)
-    for i in range(top_y_pad.size - win + 1):
-        top_y_s[i + pad] = np.median(top_y_pad[i : i + win])
-    top_y_s = top_y_s[pad:-pad].astype(np.float32)
-
-    left_band = top_y_s[: max(1, int(0.20 * w))]
-    right_band = top_y_s[w - max(1, int(0.20 * w)) :]
-    ref = np.concatenate([left_band[left_band < h], right_band[right_band < h]])
-    if ref.size < 10:
-        ref = top_y_s[top_y_s < h]
-    if ref.size < 10:
-        return rgb, alpha, mask
-
-    shoulder_y = float(np.percentile(ref, 35.0))
-    center_y = float(np.percentile(top_y_s[int(0.40 * w) : int(0.60 * w)], 25.0))
-    if center_y > shoulder_y + 0.06 * h:
-        return rgb, alpha, mask
-
-    xL = int(0.22 * w)
-    xR = int(0.78 * w)
-    yL = float(np.percentile(top_y_s[max(0, xL - 5) : min(w, xL + 6)], 35.0))
-    yR = float(np.percentile(top_y_s[max(0, xR - 5) : min(w, xR + 6)], 35.0))
-    yS = float(0.5 * (yL + yR))
-
-    neck_drop = float(np.clip(0.10 * h, 8.0, 0.22 * h))
-    yC = float(min(h - 1, yS + neck_drop))
-    c = 0.5 * (xL + xR)
-    denom = (xL - c) ** 2 + 1e-6
-    a = (yL - yC) / denom
-
-    xs_idx = np.arange(w, dtype=np.float32)
-    curve = a * (xs_idx - c) ** 2 + yC
-    curve = np.clip(curve, 0.0, float(h - 1))
-
-    x0c = int(0.28 * w)
-    x1c = int(0.72 * w)
-    feather = int(np.clip(0.03 * h, 4.0, 16.0))
-
-    alpha_box = alpha[y0 : y1 + 1, x0 : x1 + 1].copy()
-    for xi in range(x0c, x1c):
-        y_cut = int(curve[xi])
-        if y_cut <= 0:
-            continue
-        col_mask = box[:, xi]
-        if not col_mask.any():
-            continue
-        alpha_box[:y_cut, xi] = 0.0
-        if feather > 1 and y_cut + feather < h:
-            ramp = np.linspace(0.0, 1.0, feather, dtype=np.float32)
-            alpha_box[y_cut : y_cut + feather, xi] *= ramp
-
-    alpha[y0 : y1 + 1, x0 : x1 + 1] = alpha_box
-    mask[y0 : y1 + 1, x0 : x1 + 1] = alpha_box > 0.2
-    return rgb, alpha, mask
-
-
-def collar_neckline_edge(
-    rgb: np.ndarray,
-    alpha: np.ndarray,
-    mask: np.ndarray,
-    ymax_scale: float,
-    depth_bonus: float,
-    depth_penalty: float,
-    slope_strength: float,
-    slope_power: float,
-):
-    # 领口裁剪（neckline_edge）：在衣服上半部分的 ROI 内做 Sobel 边缘 + 动态规划找一条领口曲线。
-    # 这个方法比纯 mask 拟合更鲁棒：即使 mask 被后领“填平”，RGB 边缘仍可能存在。
-    ys, xs = np.nonzero(mask)
-    if xs.size < 800:
-        return rgb, alpha, mask, None
-
-    x0, x1 = int(xs.min()), int(xs.max())
-    y0, y1 = int(ys.min()), int(ys.max())
-    box_m = mask[y0 : y1 + 1, x0 : x1 + 1]
-    box_a = alpha[y0 : y1 + 1, x0 : x1 + 1].copy()
-    box_rgb = rgb[y0 : y1 + 1, x0 : x1 + 1]
-    h, w = box_m.shape
-    if h < 96 or w < 96:
-        return rgb, alpha, mask, None
-
-    top_y = np.full((w,), h, dtype=np.int32)
-    for x in range(w):
-        col = box_m[:, x]
-        if col.any():
-            top_y[x] = int(np.argmax(col))
-    valid = top_y < h
-    if valid.sum() < max(40, int(0.35 * w)):
-        return rgb, alpha, mask, None
-
-    win = max(7, (w // 50) * 2 + 1)
-    pad = win // 2
-    top_y_pad = np.pad(top_y.astype(np.float32), (pad, pad), mode="edge")
-    top_y_s = np.empty_like(top_y_pad)
-    for i in range(top_y_pad.size - win + 1):
-        top_y_s[i + pad] = np.median(top_y_pad[i : i + win])
-    top_y_s = top_y_s[pad:-pad]
-
-    # 领口起点：用衣服上边界 top_y(x) 的两个“最高点”（y 最小）
-    # 作为路径起点/终点。这样比固定比例 xL/xR 更贴合衣服实际轮廓。
-    x_search_l0 = int(0.05 * w)
-    x_search_l1 = int(0.45 * w)
-    x_search_r0 = int(0.55 * w)
-    x_search_r1 = int(0.95 * w)
-    if x_search_r0 <= x_search_l1 + 10:
-        return rgb, alpha, mask, None
-
-    top_valid = top_y_s.copy()
-    top_valid[top_valid >= h] = np.nan
-    peak_xL = _pick_plateau_edge_x(top_valid, x_search_l0, x_search_l1, h, side="left")
-    peak_xR = _pick_plateau_edge_x(top_valid, x_search_r0, x_search_r1, h, side="right")
-    if peak_xL is None or peak_xR is None:
-        return rgb, alpha, mask, None
-    if peak_xR <= peak_xL + 20:
-        return rgb, alpha, mask, None
-    peak_yL = float(top_y_s[peak_xL])
-    peak_yR = float(top_y_s[peak_xR])
-
-    left_ref = top_y_s[: max(1, int(0.20 * w))]
-    right_ref = top_y_s[w - max(1, int(0.20 * w)) :]
-    ref = np.concatenate([left_ref[left_ref < h], right_ref[right_ref < h]])
-    if ref.size < 10:
-        ref = top_y_s[top_y_s < h]
-    if ref.size < 10:
-        return rgb, alpha, mask, None
-
-    shoulder_y = float(np.percentile(ref, 35.0))
-    # 收紧纵向 ROI，避免路径下探到胸前花纹区域
-    # y_min 至少要覆盖两侧峰值点
-    y_min = int(max(0.0, min(peak_yL, peak_yR, shoulder_y) - 0.02 * h))
-    # 纵向范围放宽一些，否则容易把“后领口那条更高更平的弧线”当成最优路径
-    y_max = int(min(h - 1, shoulder_y + float(ymax_scale) * h))
-    dx = float(peak_xR - peak_xL)
-    dy = float(peak_yR - peak_yL)
-    dist = float(np.sqrt(dx * dx + dy * dy))
-    circle_mid_y = 0.5 * float(peak_yL + peak_yR)
-    circle_r = 0.5 * dist
-    # 硬约束：前领最低点（在两端点中点处）必须落在“以两端点为直径的圆”外侧。
-    # 在图像坐标里等价于：中点列的 y 必须 >= mid_y + r（向下为正）。
-    required_mid_y = float(circle_mid_y + circle_r)
-    y_max = int(min(h - 1, max(float(y_max), required_mid_y + 0.10 * h)))
-    if y_max <= y_min + 10:
-        return rgb, alpha, mask, None
-
-    gx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
-    gy = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32)
-    gray = (0.299 * box_rgb[..., 0] + 0.587 * box_rgb[..., 1] + 0.114 * box_rgb[..., 2]).astype(np.float32)
-    gray = gray / 255.0
-
-    p = np.pad(gray, ((1, 1), (1, 1)), mode="edge")
-    sx = (
-        gx[0, 0] * p[:-2, :-2]
-        + gx[0, 1] * p[:-2, 1:-1]
-        + gx[0, 2] * p[:-2, 2:]
-        + gx[1, 0] * p[1:-1, :-2]
-        + gx[1, 1] * p[1:-1, 1:-1]
-        + gx[1, 2] * p[1:-1, 2:]
-        + gx[2, 0] * p[2:, :-2]
-        + gx[2, 1] * p[2:, 1:-1]
-        + gx[2, 2] * p[2:, 2:]
-    )
-    sy = (
-        gy[0, 0] * p[:-2, :-2]
-        + gy[0, 1] * p[:-2, 1:-1]
-        + gy[0, 2] * p[:-2, 2:]
-        + gy[1, 0] * p[1:-1, :-2]
-        + gy[1, 1] * p[1:-1, 1:-1]
-        + gy[1, 2] * p[1:-1, 2:]
-        + gy[2, 0] * p[2:, :-2]
-        + gy[2, 1] * p[2:, 1:-1]
-        + gy[2, 2] * p[2:, 2:]
-    )
-    edge = np.sqrt(sx * sx + sy * sy)
-
-    roi = np.zeros_like(edge, dtype=bool)
-    roi[y_min : y_max + 1, peak_xL : peak_xR + 1] = True
-    roi &= box_a > 0.05
-    if roi.sum() < 200:
-        return rgb, alpha, mask, None
-
-    e = edge.copy()
-    e[~roi] = 0.0
-    e = e / (e.max() + 1e-6)
-
-    # DP 路径只在两侧峰值之间搜索，并强制起点/终点落在峰值 y
-    cols = np.arange(peak_xL, peak_xR + 1, dtype=np.int32)
-    H = y_max - y_min + 1
-    W = cols.size
-    if W < 30:
-        return rgb, alpha, mask, None
-
-    y_grid = np.arange(y_min, y_max + 1, dtype=np.int32)
-    score = e[y_grid[:, None], cols[None, :]].astype(np.float32)
-    # 让路径在中间段更倾向于下探（更像“前领口”），而不是贴着上边缘走成“后领口”
-    depth = np.maximum(0.0, (y_grid.astype(np.float32) - shoulder_y) / max(1.0, float(ymax_scale) * h))
-    depth = np.clip(depth, 0.0, 1.0)
-    col_idx = np.arange(W, dtype=np.float32)
-    center = 0.5 * float(W - 1)
-    center_w = 1.0 - np.abs(col_idx - center) / (center + 1e-6)
-    center_w = np.clip(center_w, 0.0, 1.0)
-    score = score + float(depth_bonus) * depth[:, None] * center_w[None, :] - float(depth_penalty) * depth[:, None]
-
-    lam = 0.22
-    max_step = max(4, int(0.04 * h))
-    cost = np.full((H,), -1e9, dtype=np.float32)
-    back = np.full((H, W), -1, dtype=np.int32)
-    # 起点强约束：只允许从左峰值 y 开始
-    start_yi = int(np.clip(round(peak_yL) - y_min, 0, H - 1))
-    cost[start_yi] = score[start_yi, 0]
-    mid_j = W // 2
-    required_mid_yi = int(np.ceil(required_mid_y) - y_min)
-    required_mid_yi = max(0, min(required_mid_yi, H - 1))
-
-    center0 = int(0.40 * W)
-    center1 = int(0.60 * W)
-    center0 = max(0, min(center0, W - 1))
-    center1 = max(center0 + 1, min(center1, W))
-    center_best = np.argmax(score[:, center0:center1], axis=0) + y_min
-    target_mid_y = float(np.percentile(center_best, 85.0))
-    target_mid_y = max(target_mid_y, shoulder_y + 0.10 * h)
-    target_mid_y = min(target_mid_y, float(y_max))
-
-    drop_left = max(0.0, target_mid_y - peak_yL)
-    drop_right = max(0.0, target_mid_y - peak_yR)
-
-    def build_targets(total_drop: float, steps: int, sign: float) -> np.ndarray:
-        if steps <= 0:
-            return np.zeros((0,), dtype=np.float32)
-        t = np.linspace(0.0, 1.0, steps, dtype=np.float32)
-        weights = (1.0 - t) ** float(slope_power)
-        weights = np.clip(weights, 1e-3, None)
-        weights = weights / weights.sum()
-        return sign * (total_drop * weights)
-
-    left_targets = build_targets(drop_left, mid_j, sign=1.0)
-    right_targets = build_targets(drop_right, W - 1 - mid_j, sign=-1.0)
-
-    for j in range(1, W):
-        new_cost = np.full((H,), -1e9, dtype=np.float32)
-        if j <= mid_j:
-            target_step = float(left_targets[j - 1]) if left_targets.size >= j else 0.0
-        else:
-            jj = j - (mid_j + 1)
-            target_step = float(right_targets[jj]) if right_targets.size > jj else 0.0
-        for yi in range(H):
-            if j == mid_j and yi < required_mid_yi:
-                continue
-            lo = max(0, yi - max_step)
-            hi = min(H, yi + max_step + 1)
-            prev_ids = np.arange(lo, hi, dtype=np.int32)
-            # 关键约束：
-            # 左半段（到中点前）只能“向右下”（y 递增或不变）
-            # 右半段（中点后）只能“向右上”（y 递减或不变）
-            if j <= mid_j:
-                prev_ids = prev_ids[prev_ids <= yi]
-            else:
-                prev_ids = prev_ids[prev_ids >= yi]
-            if prev_ids.size == 0:
-                continue
-            prev = cost[prev_ids]
-            step = float(yi) - prev_ids.astype(np.float32)
-            smooth = prev - lam * (step * step)
-            slope = -float(slope_strength) * ((step - target_step) ** 2)
-            cand = smooth + slope
-            k = int(np.argmax(cand))
-            best_prev = int(prev_ids[k])
-            new_cost[yi] = score[yi, j] + cand[k]
-            back[yi, j] = best_prev
-        cost = new_cost
-
-    # 终点强约束：尽量在右峰值 y 结束（允许 1-2 像素误差）
-    end_target = int(np.clip(round(peak_yR) - y_min, 0, H - 1))
-    end_lo = max(0, end_target - 2)
-    end_hi = min(H, end_target + 3)
-    yi = int(end_lo + int(np.argmax(cost[end_lo:end_hi])))
-    if cost[yi] < 0.05 * W:
-        return rgb, alpha, mask, None
-
-    path_y = np.zeros((W,), dtype=np.int32)
-    path_y[-1] = yi
-    for j in range(W - 1, 0, -1):
-        yi = back[yi, j]
-        if yi < 0:
-            return rgb, alpha, mask, None
-        path_y[j - 1] = yi
-    curve_y = (path_y + y_min).astype(np.int32)
-
-    # 水平扣除范围：主要在两个峰值之间（略微留边，避免肩部被误切）
-    margin = int(max(6.0, 0.04 * (peak_xR - peak_xL)))
-    mid_band = slice(int(peak_xL + margin), int(peak_xR - margin))
-
-    feather = int(np.clip(0.04 * h, 6.0, 20.0))
-    cutline_points: list[tuple[int, int]] = []
-    for k, x in enumerate(cols):
-        y_cut = int(curve_y[k])
-        if y_cut <= 0:
-            continue
-        # 只在 mid_band 内真正扣除
-        if x < mid_band.start or x >= mid_band.stop:
-            continue
-        cutline_points.append((int(x0 + x), int(y0 + y_cut)))
-        box_a[:y_cut, x] = 0.0
-        if feather > 1 and y_cut + feather < h:
-            ramp = np.linspace(0.0, 1.0, feather, dtype=np.float32)
-            box_a[y_cut : y_cut + feather, x] *= ramp
-
-    alpha[y0 : y1 + 1, x0 : x1 + 1] = box_a
-    mask[y0 : y1 + 1, x0 : x1 + 1] = box_a > 0.2
-    debug = {
-        "neckline_cutline": cutline_points,
-        "neckline_peaks": [(int(x0 + peak_xL), int(y0 + round(peak_yL))), (int(x0 + peak_xR), int(y0 + round(peak_yR)))],
-        "neckline_required_mid_y": int(y0 + round(required_mid_y)),
-    }
-    return rgb, alpha, mask, debug
-
-
 def bbox_from_mask(mask: np.ndarray) -> tuple[int, int]:
     ys, xs = np.nonzero(mask)
     if len(xs) == 0:
@@ -633,13 +248,21 @@ def seam_fix_side_views(
         valid = widths > 0
         if valid.sum() < 20:
             return np.ones((h,), dtype=bool)
-        med = float(np.median(widths[valid]))
-        lo = 0.75 * med
-        hi = 1.30 * med
+
+        y0 = int(0.25 * h)
+        y1 = int(0.75 * h)
+        core = valid.copy()
+        core[:y0] = False
+        core[y1:] = False
+        base = widths[core] if core.sum() >= 10 else widths[valid]
+        med = float(np.median(base))
+
+        lo = 0.70 * med
+        hi = 1.15 * med
         torso = (widths >= lo) & (widths <= hi)
-        # 经验过滤：避开最上/最下边缘（领口/下摆/袖口更容易乱）
-        torso[: int(0.10 * h)] = False
-        torso[int(0.92 * h) :] = False
+        # 经验过滤：避开更容易出现异常的区域（领口/袖口/下摆）
+        torso[: int(0.15 * h)] = False
+        torso[int(0.88 * h) :] = False
         return torso
 
     def _gray(rgb: np.ndarray) -> np.ndarray:
@@ -680,6 +303,30 @@ def seam_fix_side_views(
         b_gray = _gray(b_band)
         p_gray = _gray(patch_rgb)
 
+        # 全局对齐偏移：用所有躯干行估计一个稳定的相位偏移，作为后续分块搜索的先验与回退。
+        torso2d_all = torso_rows[:, None]
+        fm_all = f_m & torso2d_all
+        bm_all = b_m & torso2d_all
+        pm_all = p_m
+        global_best_o = int(max_off // 2)
+        if ((fm_all | bm_all).sum() >= 400) and (pm_all.sum() >= 400):
+            best_s = -1e9
+            for o in range(0, max_off + 1):
+                pw = p_gray[:, o : o + band_w]
+                pmw = pm_all[:, o : o + band_w]
+                s = 0.0
+                if fm_all.sum() >= 120:
+                    mm = fm_all & pmw
+                    if mm.sum() >= 120:
+                        s += _corr(pw[mm], f_gray[mm])
+                if bm_all.sum() >= 120:
+                    mm = bm_all & pmw
+                    if mm.sum() >= 120:
+                        s += _corr(pw[mm], b_gray[mm])
+                if s > best_s:
+                    best_s = s
+                    global_best_o = int(o)
+
         for bi, y0 in enumerate(range(0, h, block_h)):
             y1 = min(h, y0 + block_h)
             torso2d = torso_rows[y0:y1, None]
@@ -690,8 +337,10 @@ def seam_fix_side_views(
                 offsets[bi] = int(max_off // 2)
                 continue
 
-            best_o = 0
+            best_o = int(global_best_o)
             best_s = -1e9
+            # 偏移正则：避免块与块之间出现跳变，降低“方块纹理”伪影风险
+            dev_lambda = 0.015
             for o in range(0, max_off + 1):
                 pw = p_gray[y0:y1, o : o + band_w]
                 pmw = pm[:, o : o + band_w]
@@ -704,10 +353,16 @@ def seam_fix_side_views(
                     mm = bm & pmw
                     if mm.sum() >= 80:
                         s += _corr(pw[mm], b_gray[y0:y1][mm])
+                s = float(s) - float(dev_lambda) * float((o - global_best_o) ** 2)
                 if s > best_s:
                     best_s = s
                     best_o = o
             offsets[bi] = int(best_o)
+
+        # 若分块偏移波动过大，直接回退为全局偏移，避免在边缘带出现可见的块状分段。
+        if offsets.size >= 3 and max_off >= 8:
+            if float(np.std(offsets.astype(np.float32))) > max(3.0, 0.18 * float(max_off)):
+                offsets[:] = int(global_best_o)
 
         return offsets
 
@@ -720,15 +375,30 @@ def seam_fix_side_views(
     ):
         block_h = int(np.clip(0.07 * h, 20, 56))
         offsets = _best_offsets_for_blocks(band_slice, patch_rgb, patch_a, patch_m, torso_rows, block_h)
+        patch_w = int(patch_rgb.shape[1])
+        max_off = max(0, patch_w - band_w)
+
+        block_centers = (np.arange(offsets.size, dtype=np.float32) * float(block_h) + 0.5 * float(block_h)).astype(np.float32)
+        block_centers = np.clip(block_centers, 0.0, float(h - 1))
+        rows = np.arange(h, dtype=np.float32)
+        row_off = np.interp(rows, block_centers, offsets.astype(np.float32))
+        k = int(np.clip(0.06 * h, 5, 19))
+        if k % 2 == 0:
+            k += 1
+        pad = k // 2
+        row_pad = np.pad(row_off, (pad, pad), mode="edge")
+        kernel = np.ones((k,), dtype=np.float32) / float(k)
+        row_off = np.convolve(row_pad, kernel, mode="valid")
+        row_off = np.clip(np.round(row_off), 0.0, float(max_off)).astype(np.int32)
+
         ref_rgb = np.zeros((h, band_w, 3), dtype=np.float32)
         ref_a = np.zeros((h, band_w), dtype=np.float32)
         ref_m = np.zeros((h, band_w), dtype=bool)
-        for bi, y0 in enumerate(range(0, h, block_h)):
-            y1 = min(h, y0 + block_h)
-            o = int(offsets[bi])
-            ref_rgb[y0:y1] = patch_rgb[y0:y1, o : o + band_w]
-            ref_a[y0:y1] = patch_a[y0:y1, o : o + band_w]
-            ref_m[y0:y1] = patch_m[y0:y1, o : o + band_w]
+        for y in range(h):
+            o = int(row_off[y])
+            ref_rgb[y] = patch_rgb[y, o : o + band_w]
+            ref_a[y] = patch_a[y, o : o + band_w]
+            ref_m[y] = patch_m[y, o : o + band_w]
         return ref_rgb, ref_a, ref_m
 
     def transfer_to_band(
@@ -798,14 +468,8 @@ def apply_modules_to_pair(
     sem_back_path: str,
     sem_left_path: str,
     sem_right_path: str,
-    collar_module: str,
     seam_module: str,
     seam_band_width: int,
-    neckline_edge_ymax_scale: float,
-    neckline_edge_depth_bonus: float,
-    neckline_edge_depth_penalty: float,
-    neckline_edge_slope_strength: float,
-    neckline_edge_slope_power: float,
     neckline_manual_x: float,
     neckline_manual_y: float,
     neckline_manual_shape: float,
@@ -828,105 +492,70 @@ def apply_modules_to_pair(
         right_rgb, right_a, right_m = load_rgb_and_mask(sem_right_path)
         right_rgb = decontaminate_edges(right_rgb, right_a, estimate_bg_color(right_rgb, right_a))
 
-    if collar_module == "cut_top_bump":
-        front_rgb, front_a, front_m = collar_cut_top_bump(front_rgb, front_a, front_m)
-    if collar_module == "neckline_cut":
-        front_rgb, front_a, front_m = collar_neckline_cut(front_rgb, front_a, front_m)
-    if collar_module == "neckline_edge":
-        front_rgb, front_a, front_m, info = collar_neckline_edge(
-            front_rgb,
-            front_a,
-            front_m,
-            neckline_edge_ymax_scale,
-            neckline_edge_depth_bonus,
-            neckline_edge_depth_penalty,
-            neckline_edge_slope_strength,
-            neckline_edge_slope_power,
-        )
-        if isinstance(info, dict):
-            debug.update(info)
-    if collar_module == "manual_point":
-        # 交互式领口：用户在网页上点一个“前领最低点”，与两侧最高点拟合二次曲线后扣除
-        ys, xs = np.nonzero(front_m)
-        if xs.size >= 800 and 0.0 <= float(neckline_manual_x) <= 1.0 and 0.0 <= float(neckline_manual_y) <= 1.0:
-            full_h, full_w = front_m.shape
-            x0, x1 = int(xs.min()), int(xs.max())
-            y0, y1 = int(ys.min()), int(ys.max())
-            box = front_m[y0 : y1 + 1, x0 : x1 + 1]
-            h, w = box.shape
-            top_y = np.full((w,), h, dtype=np.int32)
-            for x in range(w):
-                col = box[:, x]
-                if col.any():
-                    top_y[x] = int(np.argmax(col))
-            top_y = top_y.astype(np.float32)
-            top_y[top_y >= h] = np.nan
-            x_search_l0 = 0
-            x_search_l1 = max(1, int(0.45 * w))
-            x_search_r0 = max(1, int(0.55 * w))
-            x_search_r1 = w
-            peak_xL = _pick_plateau_edge_x(top_y, x_search_l0, x_search_l1, h, side="left")
-            peak_xR = _pick_plateau_edge_x(top_y, x_search_r0, x_search_r1, h, side="right")
-            if peak_xL is not None and peak_xR is not None:
-                peak_yL = float(top_y[peak_xL])
-                peak_yR = float(top_y[peak_xR])
-                if peak_xR > peak_xL + 20 and not np.isnan(peak_yL) and not np.isnan(peak_yR):
-                    u = float(neckline_manual_x)
-                    v = float(neckline_manual_y)
-                    # 用户点位按“整张 semantic front 图”的归一化坐标传入，
-                    # 先映射到 full 图，再转成 bbox 局部坐标，避免因为 bbox 裁切导致点位系统性下移。
-                    user_abs_x = int(round(u * float(full_w - 1)))
-                    user_abs_y = int(round(v * float(full_h - 1)))
-                    px = int(np.clip(user_abs_x - x0, peak_xL, peak_xR))
-                    py = int(np.clip(user_abs_y - y0, int(min(peak_yL, peak_yR)), h - 1))
+    # 交互式领口：用户在网页上点一个“前领最低点”，与两侧最高点拟合曲线后扣除。
+    # 若未提供有效点位（x/y 不在 [0,1]），则不做任何裁剪。
+    ys, xs = np.nonzero(front_m)
+    if xs.size >= 800 and 0.0 <= float(neckline_manual_x) <= 1.0 and 0.0 <= float(neckline_manual_y) <= 1.0:
+        full_h, full_w = front_m.shape
+        x0, x1 = int(xs.min()), int(xs.max())
+        y0, y1 = int(ys.min()), int(ys.max())
+        box = front_m[y0 : y1 + 1, x0 : x1 + 1]
+        h, w = box.shape
+        top_y = np.full((w,), h, dtype=np.int32)
+        for x in range(w):
+            col = box[:, x]
+            if col.any():
+                top_y[x] = int(np.argmax(col))
+        top_y = top_y.astype(np.float32)
+        top_y[top_y >= h] = np.nan
+        x_search_l0 = 0
+        x_search_l1 = max(1, int(0.45 * w))
+        x_search_r0 = max(1, int(0.55 * w))
+        x_search_r1 = w
+        peak_xL = _pick_plateau_edge_x(top_y, x_search_l0, x_search_l1, h, side="left")
+        peak_xR = _pick_plateau_edge_x(top_y, x_search_r0, x_search_r1, h, side="right")
+        if peak_xL is not None and peak_xR is not None:
+            peak_yL = float(top_y[peak_xL])
+            peak_yR = float(top_y[peak_xR])
+            if peak_xR > peak_xL + 20 and not np.isnan(peak_yL) and not np.isnan(peak_yR):
+                u = float(neckline_manual_x)
+                v = float(neckline_manual_y)
+                user_abs_x = int(round(u * float(full_w - 1)))
+                user_abs_y = int(round(v * float(full_h - 1)))
+                px = int(np.clip(user_abs_x - x0, peak_xL, peak_xR))
+                py = int(np.clip(user_abs_y - y0, int(min(peak_yL, peak_yR)), h - 1))
 
-                    A = np.array(
-                        [
-                            [float(peak_xL) ** 2, float(peak_xL), 1.0],
-                            [float(px) ** 2, float(px), 1.0],
-                            [float(peak_xR) ** 2, float(peak_xR), 1.0],
-                        ],
-                        dtype=np.float32,
-                    )
-                    b = np.array([float(peak_yL), float(py), float(peak_yR)], dtype=np.float32)
-                    try:
-                        coef = np.linalg.solve(A, b)
-                    except Exception:
-                        coef = None
-                    if coef is not None:
-                        t01 = float(np.clip((float(neckline_manual_shape) - 0.50) / 2.00, 0.0, 1.0))
-                        p_shape = float(1.0 + (1.0 - t01) * 5.0)
-                        # manual_point 以“用户点位”作为硬约束，feather 太大时视觉边界会比点位更靠下
-                        # 所以这里用更小的 feather，并对 y_cut 做一点补偿，让可见边界更贴近用户点。
-                        feather = int(np.clip(0.02 * h, 2.0, 10.0))
-                        bias = int(round(0.2 * feather))
-                        cutline_points: list[tuple[int, int]] = []
-                        alpha_box = front_a[y0 : y1 + 1, x0 : x1 + 1].copy()
-                        for x in range(peak_xL, peak_xR + 1):
-                            if x <= px:
-                                denom = float(max(1, px - peak_xL))
-                                t = float(x - peak_xL) / denom
-                                f = 1.0 - (1.0 - t) ** p_shape
-                                y_cut_f = float(peak_yL) + (float(py) - float(peak_yL)) * f
-                            else:
-                                denom = float(max(1, peak_xR - px))
-                                t = float(peak_xR - x) / denom
-                                f = 1.0 - (1.0 - t) ** p_shape
-                                y_cut_f = float(peak_yR) + (float(py) - float(peak_yR)) * f
-                            y_cut = int(np.clip(y_cut_f, 0.0, float(h - 1)))
-                            y_cut = max(0, y_cut - bias)
-                            cutline_points.append((int(x0 + x), int(y0 + y_cut)))
-                            alpha_box[:y_cut, x] = 0.0
-                            if feather > 1 and y_cut + feather < h:
-                                ramp = np.linspace(0.0, 1.0, feather, dtype=np.float32)
-                                alpha_box[y_cut : y_cut + feather, x] *= ramp
-                        front_a[y0 : y1 + 1, x0 : x1 + 1] = alpha_box
-                        front_m[y0 : y1 + 1, x0 : x1 + 1] = alpha_box > 0.2
-                        debug["neckline_cutline"] = cutline_points
-                        debug["neckline_peaks"] = [(int(x0 + peak_xL), int(y0 + round(peak_yL))), (int(x0 + peak_xR), int(y0 + round(peak_yR)))]
-                        debug["neckline_user_point"] = (int(x0 + px), int(y0 + py))
-                        debug["neckline_manual_shape"] = float(neckline_manual_shape)
-                        debug["neckline_manual_p"] = float(p_shape)
+                t01 = float(np.clip((float(neckline_manual_shape) - 0.50) / 2.00, 0.0, 1.0))
+                p_shape = float(1.0 + (1.0 - t01) * 5.0)
+                feather = int(np.clip(0.02 * h, 2.0, 10.0))
+                bias = int(round(0.2 * feather))
+                cutline_points: list[tuple[int, int]] = []
+                alpha_box = front_a[y0 : y1 + 1, x0 : x1 + 1].copy()
+                for x in range(peak_xL, peak_xR + 1):
+                    if x <= px:
+                        denom = float(max(1, px - peak_xL))
+                        t = float(x - peak_xL) / denom
+                        f = 1.0 - (1.0 - t) ** p_shape
+                        y_cut_f = float(peak_yL) + (float(py) - float(peak_yL)) * f
+                    else:
+                        denom = float(max(1, peak_xR - px))
+                        t = float(peak_xR - x) / denom
+                        f = 1.0 - (1.0 - t) ** p_shape
+                        y_cut_f = float(peak_yR) + (float(py) - float(peak_yR)) * f
+                    y_cut = int(np.clip(y_cut_f, 0.0, float(h - 1)))
+                    y_cut = max(0, y_cut - bias)
+                    cutline_points.append((int(x0 + x), int(y0 + y_cut)))
+                    alpha_box[:y_cut, x] = 0.0
+                    if feather > 1 and y_cut + feather < h:
+                        ramp = np.linspace(0.0, 1.0, feather, dtype=np.float32)
+                        alpha_box[y_cut : y_cut + feather, x] *= ramp
+                front_a[y0 : y1 + 1, x0 : x1 + 1] = alpha_box
+                front_m[y0 : y1 + 1, x0 : x1 + 1] = alpha_box > 0.2
+                debug["neckline_cutline"] = cutline_points
+                debug["neckline_peaks"] = [(int(x0 + peak_xL), int(y0 + round(peak_yL))), (int(x0 + peak_xR), int(y0 + round(peak_yR)))]
+                debug["neckline_user_point"] = (int(x0 + px), int(y0 + py))
+                debug["neckline_manual_shape"] = float(neckline_manual_shape)
+                debug["neckline_manual_p"] = float(p_shape)
 
     if seam_module == "side_views":
         if left_rgb is not None and right_rgb is not None:
@@ -965,15 +594,9 @@ def apply_modules_to_pair(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--items-json", required=True)
-    parser.add_argument("--collar-module", choices=["none", "cut_top_bump", "neckline_cut", "neckline_edge", "manual_point"], default="none")
     parser.add_argument("--seam-module", choices=["none", "feather_stats", "side_views"], default="feather_stats")
     parser.add_argument("--seam-band-width", type=int, default=24)
     parser.add_argument("--invert-vton-cloth-names", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--neckline-edge-ymax-scale", type=float, default=0.40)
-    parser.add_argument("--neckline-edge-depth-bonus", type=float, default=0.28)
-    parser.add_argument("--neckline-edge-depth-penalty", type=float, default=0.04)
-    parser.add_argument("--neckline-edge-slope-strength", type=float, default=0.12)
-    parser.add_argument("--neckline-edge-slope-power", type=float, default=1.6)
     parser.add_argument("--neckline-manual-x", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-y", type=float, default=-1.0)
     parser.add_argument("--neckline-manual-shape", type=float, default=1.0)
@@ -988,14 +611,8 @@ def main() -> None:
             it["src_sem_back"],
             it.get("src_sem_left", ""),
             it.get("src_sem_right", ""),
-            args.collar_module,
             args.seam_module,
             int(args.seam_band_width),
-            float(args.neckline_edge_ymax_scale),
-            float(args.neckline_edge_depth_bonus),
-            float(args.neckline_edge_depth_penalty),
-            float(args.neckline_edge_slope_strength),
-            float(args.neckline_edge_slope_power),
             float(args.neckline_manual_x),
             float(args.neckline_manual_y),
             float(args.neckline_manual_shape),
@@ -1006,11 +623,11 @@ def main() -> None:
         os.makedirs(os.path.dirname(dst_front), exist_ok=True)
 
         if args.invert_vton_cloth_names:
-            Image.fromarray(composite_on_white(b_rgb, b_a)).save(dst_front, quality=95)
-            Image.fromarray(composite_on_white(f_rgb, f_a)).save(dst_back, quality=95)
+            Image.fromarray(composite_on_white(b_rgb, b_a)).save(dst_front, quality=98, subsampling=0, optimize=True)
+            Image.fromarray(composite_on_white(f_rgb, f_a)).save(dst_back, quality=98, subsampling=0, optimize=True)
         else:
-            Image.fromarray(composite_on_white(f_rgb, f_a)).save(dst_front, quality=95)
-            Image.fromarray(composite_on_white(b_rgb, b_a)).save(dst_back, quality=95)
+            Image.fromarray(composite_on_white(f_rgb, f_a)).save(dst_front, quality=98, subsampling=0, optimize=True)
+            Image.fromarray(composite_on_white(b_rgb, b_a)).save(dst_back, quality=98, subsampling=0, optimize=True)
 
         if args.debug_dir:
             debug_dir = Path(args.debug_dir)
@@ -1018,8 +635,8 @@ def main() -> None:
             base = Path(dst_front).stem.replace("_front", "").replace("_back", "")
             out_front = debug_dir / f"{base}_vton_input_front.jpg"
             out_back = debug_dir / f"{base}_vton_input_back.jpg"
-            Image.fromarray(composite_on_white(f_rgb, f_a)).save(out_front, quality=95)
-            Image.fromarray(composite_on_white(b_rgb, b_a)).save(out_back, quality=95)
+            Image.fromarray(composite_on_white(f_rgb, f_a)).save(out_front, quality=98, subsampling=0, optimize=True)
+            Image.fromarray(composite_on_white(b_rgb, b_a)).save(out_back, quality=98, subsampling=0, optimize=True)
             if "neckline_cutline" in debug:
                 line = debug["neckline_cutline"]
                 if isinstance(line, list) and len(line) >= 2:
@@ -1040,7 +657,7 @@ def main() -> None:
                     if isinstance(req, int):
                         y = req
                         draw.line([(0, y), (im.size[0] - 1, y)], fill=(0, 0, 255), width=2)
-                    im.save(debug_dir / f"{base}_vton_input_front_cutline.jpg", quality=95)
+                    im.save(debug_dir / f"{base}_vton_input_front_cutline.jpg", quality=98, subsampling=0, optimize=True)
 
 
 if __name__ == "__main__":

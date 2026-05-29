@@ -1,0 +1,46 @@
+VTON 项目使用手册
+
+一、毕设集成使用说明（Wonder3D → 中间模块 → VTON360）
+
+本仓库作为毕业设计工程中的 VTON360 推理端使用。毕业设计的整套流水线位于同级目录 ../src/，包含：
+- Wonder3D 生成多视角服装条件
+- 中间模块（alpha 修正、manual_point 领口、接缝修复）
+- 将处理后的 front/back cloth 写入本仓库数据目录并改写测试配置
+- 调用本仓库的多视角一致性试穿推理脚本输出结果
+
+（注：VTON360和Wonder3D两个模块的配置见README.md）
+
+1) 一键跑通（命令行）
+
+在项目根目录执行：
+
+conda init bash && source ~/.bashrc
+（以上为云服务器环境示例，根据实际情况调整）
+
+python ./src/run_tryon_pipeline.py \
+  --wonder3d-env wonder3d \
+  --vton360-env vton360tmp \
+  --seam-module side_views \
+  --seam-band-width 24
+
+关键参数：
+- --seam-module：none / feather_stats / side_views
+- --seam-band-width：接缝边缘带宽度（像素），越大融合越强但更可能影响袖口等区域
+
+2) Web UI（前后端交互）
+
+启动服务端：
+
+python ./src/ui_server.py \
+  --host 127.0.0.1 \
+  --port 8766 \
+  --wonder3d-env wonder3d \
+  --vton360-env vton360tmp
+
+启动客户端：
+python ./ui_client.py
+
+如果在远程服务器上运行，通过 SSH 端口转发在本地浏览器访问：
+
+ssh -L 8766:127.0.0.1:8766 -p <PORT> root@<HOST>
+
